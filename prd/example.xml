@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<AltaPassengerDeclaration time="2025-05-06T18:09:15+10:00" user="baranova" Version="2.0.260.32" FileName="*{7E304A1C-35A6-4D9E-98DC-E36535FC170B}\{A0986C37-6502-4F1E-A91D-7D4C332C5FE5}.PASSD" EDVer="5_25_0" Comment="+С пошлиной">
+  <___PRIM Name="&amp;&amp;PRIM">+С пошлиной</___PRIM>
+  <DocumentID>CBFA17E0-84CC-4C8D-BC12-FE2FEDC0676A</DocumentID>
+  <Nomer>00000000/040525/0004281</Nomer>
+  <RegNum>10716050/050525/А009892</RegNum>
+  <PI_URN>UIN-052500-25001327054</PI_URN>
+  <MovingCode>3</MovingCode>
+  <DeclarantPerson_PersonSurname>РОГАНКОВ</DeclarantPerson_PersonSurname>
+  <DeclarantPerson_PersonName>ВЛАДИМИР</DeclarantPerson_PersonName>
+  <DeclarantPerson_PersonMiddleName>ЕВГЕНЬЕВИЧ</DeclarantPerson_PersonMiddleName>
+  <DeclarantPerson_INN>500402893340</DeclarantPerson_INN>
+  <DeclarantPerson_PersonIdCard_IdentityCardCode>RU01001</DeclarantPerson_PersonIdCard_IdentityCardCode>
+  <DeclarantPerson_PersonIdCard_IdentityCardName>ПАСПОРТ</DeclarantPerson_PersonIdCard_IdentityCardName>
+  <DeclarantPerson_PersonIdCard_FullIdentityCardName>Паспорт гражданина РФ</DeclarantPerson_PersonIdCard_FullIdentityCardName>
+  <DeclarantPerson_PersonIdCard_IdentityCardSeries>46 13</DeclarantPerson_PersonIdCard_IdentityCardSeries>
+  <DeclarantPerson_PersonIdCard_IdentityCardNumber>197002</DeclarantPerson_PersonIdCard_IdentityCardNumber>
+  <DeclarantPerson_PersonIdCard_IdentityCardDate>2013-11-14</DeclarantPerson_PersonIdCard_IdentityCardDate>
+  <DeclarantPerson_PersonIdCard_OrganizationName>ОУФМС РОССИИ ПО МОСКОВСКОЙ ОБЛ. ПО ВОЛОКОЛАМСКОМУ МУНИЦИПАЛЬНОМУ РАЙОНУ</DeclarantPerson_PersonIdCard_OrganizationName>
+  <DeclarantPerson_PersonIdCard_IssuerCode>500-012</DeclarantPerson_PersonIdCard_IssuerCode>
+  <DeclarantPerson_PersonIdCard_CountryCode>RU</DeclarantPerson_PersonIdCard_CountryCode>
+  <DeclarantPerson_Address>
+    <AddressKindCode>1</AddressKindCode>
+    <CountryCode>RU</CountryCode>
+    <CounryName>РОССИЯ</CounryName>
+    <Region>МОСКОВСКАЯ ОБЛ.</Region>
+    <Town>Г. ВОЛОКОЛАМСК, Д. ЧЕРТАНОВО</Town>
+    <House>31</House>
+  </DeclarantPerson_Address>
+  <DeclarantPerson_Address></DeclarantPerson_Address>
+  <DeclarantPerson_BirthDate>1968-07-11</DeclarantPerson_BirthDate>
+  <TransportMeans_TransferPurposeCode>1</TransportMeans_TransferPurposeCode>
+  <TransportMeans_TransportMeansDetails>
+    <TransportModeCode>30</TransportModeCode>
+    <GoodsTNVEDCode>8703229098</GoodsTNVEDCode>
+    <TypeIndicator>1</TypeIndicator>
+    <TransportMeansRegId>ОТСУТСТВУЕТ</TransportMeansRegId>
+    <VINID>LFV2B2CD5M5769401</VINID>
+    <ChassisID>ОТСУТСТВУЕТ</ChassisID>
+    <BodyID>LFV2B2CD5M5769401</BodyID>
+    <MarkCode>665</MarkCode>
+    <Mark>VOLKSWAGEN</Mark>
+    <Model>GOLF</Model>
+    <OfftakeYear>2021-12-17</OfftakeYear>
+    <EngineVolumeQuanity_MeasuredAmount>1395</EngineVolumeQuanity_MeasuredAmount>
+    <EngineVolumeQuanity_MeasureUnitQualifierName>СМ3</EngineVolumeQuanity_MeasureUnitQualifierName>
+    <EngineVolumeQuanity_MeasureUnitQualifierCode>111</EngineVolumeQuanity_MeasureUnitQualifierCode>
+    <Engine>
+      <EngineModeCode>1</EngineModeCode>
+      <EngineModeName>БЕНЗИНОВЫЙ</EngineModeName>
+      <EngineModel>DJS</EngineModel>
+      <EnginePowerHpQuanity>150.00</EnginePowerHpQuanity>
+    </Engine>
+    <CustCost_Amount>1262356.90</CustCost_Amount>
+    <CustCost_CurrencyCode>RUB</CustCost_CurrencyCode>
+    <TransportKindName>Автодорожный транспорт, ЗА ИСКЛЮЧЕНИЕМ транспортных средств, указанных</TransportKindName>
+  </TransportMeans_TransportMeansDetails>
+  <RoleCode>2</RoleCode>
+  <SignatoryRepresentativeDetails_BrokerRegistryDocDetails_DocKindCode>09034</SignatoryRepresentativeDetails_BrokerRegistryDocDetails_DocKindCode>
+  <SignatoryRepresentativeDetails_BrokerRegistryDocDetails_RegistrationNumberId>1695</SignatoryRepresentativeDetails_BrokerRegistryDocDetails_RegistrationNumberId>
+  <SignatoryRepresentativeDetails_RepresentativeContractDetails_PrDocumentName>Договор с таможенным представителем</SignatoryRepresentativeDetails_RepresentativeContractDetails_PrDocumentName>
+  <SignatoryRepresentativeDetails_RepresentativeContractDetails_PrDocumentNumber>21732899</SignatoryRepresentativeDetails_RepresentativeContractDetails_PrDocumentNumber>
+  <SignatoryRepresentativeDetails_RepresentativeContractDetails_PrDocumentDate>2025-04-23</SignatoryRepresentativeDetails_RepresentativeContractDetails_PrDocumentDate>
+  <SignatoryRepresentativeDetails_RepresentativeContractDetails_DocKindCode>11002</SignatoryRepresentativeDetails_RepresentativeContractDetails_DocKindCode>
+  <FilledPerson_SigningDetails_PersonSurname>ПОЛУЭКТОВ</FilledPerson_SigningDetails_PersonSurname>
+  <FilledPerson_SigningDetails_PersonName>ВИТАЛИЙ</FilledPerson_SigningDetails_PersonName>
+  <FilledPerson_SigningDetails_PersonMiddleName>СЕРГЕЕВИЧ</FilledPerson_SigningDetails_PersonMiddleName>
+  <FilledPerson_SigningDetails_PersonPost>ГЕНЕРАЛЬНЫЙ ДИРЕКТОР</FilledPerson_SigningDetails_PersonPost>
+  <FilledPerson_SigningDetails_SigningDate>05.05.2025 10:32:53</FilledPerson_SigningDetails_SigningDate>
+</AltaPassengerDeclaration>
