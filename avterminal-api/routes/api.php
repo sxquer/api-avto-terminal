@@ -7,6 +7,11 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 use App\Http\Controllers\AmoCRMController;
 
+
+Route::get('/', function () {
+    return response()->json(['message' => 'Welcome to the API']);
+});
+
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
