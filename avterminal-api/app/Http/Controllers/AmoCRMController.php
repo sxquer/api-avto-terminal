@@ -14,17 +14,16 @@ class AmoCRMController extends Controller
     {
         $config = config('amocrm');
 
-        // Создаем apiClient, не передавая clientId и clientSecret в конструктор
-        $apiClient = new AmoCRMApiClient("0b6002fd-93c6-4821-8529-6d310f001ef2", "5iXjnkIEQSdLJOvITKavDPUnT2RLPsZRqLJEmSnS7EfCht23YajAKIIuNu6QbW0k");
+        // Создаем apiClient, используя данные из конфигурации
+        $apiClient = new AmoCRMApiClient($config['client_id'], $config['client_secret']);
 
         // Устанавливаем домен
-
         $apiClient->setAccountBaseDomain($config['subdomain'] . '.amocrm.ru');
 
-        // Создаем объект токена из долгосрочного ключа
+        // Создаем объект токена из долгосрочного ключа из конфигурации
         $accessToken = new AccessToken([
-            'access_token' => "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjA1NTQwMTM2MWE4NTUwNjI5M2I4MTJlNzZmMmQzZjA4ZDc1YzQ5ODU3MjYyMzBkYmFjZWVkZjhkM2IwYzhhNDFkMDQwOWYwMjFjOGI2M2MwIn0.eyJhdWQiOiIwYjYwMDJmZC05M2M2LTQ4MjEtODUyOS02ZDMxMGYwMDFlZjIiLCJqdGkiOiIwNTU0MDEzNjFhODU1MDYyOTNiODEyZTc2ZjJkM2YwOGQ3NWM0OTg1NzI2MjMwZGJhY2VlZGY4ZDNiMGM4YTQxZDA0MDlmMDIxYzhiNjNjMCIsImlhdCI6MTc1Mzc4NDM0OCwibmJmIjoxNzUzNzg0MzQ4LCJleHAiOjE3NTM5MjAwMDAsInN1YiI6IjEwMzkxNzAyIiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjMxNDMxNzAyLCJiYXNlX2RvbWFpbiI6ImFtb2NybS5ydSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiYTcxMTU0NDUtOTEyNi00MDBlLTg4NzAtOTEwN2VmMTg1OTJhIiwiYXBpX2RvbWFpbiI6ImFwaS1iLmFtb2NybS5ydSJ9.ZpI7fF62-GUkseLIArWkCnYr9secrkX5CDNz6iMfh5uMYVY8LTsGgK46MVKDgYMBbnyZ_GQW5htuPpP50vJvq5DzcERqZdOM3BhA8eHQyjyKAw1ObE2_xBRIktilN8ct_4pQNyCKZWLi-xPwfY5dzGinUuVkcIKOkAH2OoIChzq3Gvvg96px346KjCGSNE5HdsqXTkPf8SkPKhEciTFEDgz5nbjr2xpmcnUMOQz9MG-o5uutQpBNE3KVCt5PS6hN3Td_iGJT_IVmy55js3pnYLtzymxKSnwr0s2rkMHLbd-C03dSn2TmzctApMAyGFfzQisRi-LUZslfo1w29-u81A",
-            'refresh_token' => "2232313213123123123",
+            'access_token' => $config['long_lived_token'],
+            'refresh_token' => 'placeholder_refresh_token', // Токен долгосрочный, refresh_token не используется
             'expires' => time() + 86400 * 365 * 10, // Устанавливаем "вечный" срок жизни
         ]);
 
