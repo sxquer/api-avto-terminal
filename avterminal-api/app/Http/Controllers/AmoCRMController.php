@@ -114,4 +114,75 @@ class AmoCRMController extends Controller
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
+
+    public function getFormattedLeadAndContactData(Request $request, $id)
+    {
+        try {
+            // Получение сделки вместе с контактами
+            $lead = $this->apiClient->leads()->getOne($id, ['contacts']);
+            $leadArray = $lead->toArray();
+
+            $contact = null;
+            if (isset($leadArray['contacts'][0])) {
+                $contactId = $leadArray['contacts'][0]['id'];
+                $contact = $this->apiClient->contacts()->getOne($contactId);
+                $contact = $contact->toArray();
+            }
+
+            $responseText = "lead_id,contact_id\n";
+            $responseText .= "{$leadArray['id']},{$contact['id']}\n";
+
+            $leadCustomFields = $this->formatCustomFields($leadArray['custom_fields_values'] ?? []);
+            $contactCustomFields = $this->formatCustomFields($contact['custom_fields_values'] ?? []);
+
+            $allCustomFields = array_merge($leadCustomFields, $contactCustomFields);
+
+            foreach ($allCustomFields as $field) {
+                $responseText .= "{$field['field_id']}\n";
+                $responseText .= "{$field['field_name']}\n";
+                $responseText .= "{$field['field_value']}\n";
+            }
+
+            return response($responseText, 200, ['Content-Type' => 'text/plain']);
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    private function formatCustomFields(array $customFields): array
+    {
+        $formattedFields = [];
+
+        foreach ($customFields as $field) {
+            $values = [];
+            foreach ($field['values'] as $value) {
+                $processedValue = $value['value'];
+
+                // 2) Если значение дата, то отформатируй его в YYYY-MM-DD формат
+                if (in_array($field['field_type'], ['date', 'birthday']) && !empty($processedValue)) {
+                    $processedValue = date('Y-m-d', strtotime($processedValue));
+                }
+
+                // 4) Если это поле "Серия паспорта" то нужно чтобы 4 цифры были разделе по 2 пробелов
+                if ($field['field_name'] === 'Серия паспорта' && strlen($processedValue) === 4 && is_numeric($processedValue)) {
+                    $processedValue = substr($processedValue, 0, 2) . ' ' . substr($processedValue, 2, 2);
+                }
+                
+                // 3) Все значения должны быть написаны заглавными буквами
+                $values[] = mb_strtoupper($processedValue, 'UTF-8');
+            }
+            
+            // 1) Если изначально значений несколько, то объедени их через запятую
+            $finalValue = implode(',', $values);
+
+            $formattedFields[] = [
+                'field_id' => $field['field_id'],
+                'field_name' => $field['field_name'],
+                'field_value' => $finalValue,
+            ];
+        }
+
+        return $formattedFields;
+    }
 }
