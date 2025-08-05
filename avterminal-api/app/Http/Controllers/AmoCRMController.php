@@ -129,21 +129,18 @@ class AmoCRMController extends Controller
                 $contact = $contact->toArray();
             }
 
-            $responseText = "lead_id,contact_id\n";
-            $responseText .= "{$leadArray['id']},{$contact['id']}\n";
-
             $leadCustomFields = $this->formatCustomFields($leadArray['custom_fields_values'] ?? []);
             $contactCustomFields = $this->formatCustomFields($contact['custom_fields_values'] ?? []);
 
             $allCustomFields = array_merge($leadCustomFields, $contactCustomFields);
 
-            foreach ($allCustomFields as $field) {
-                $responseText .= "{$field['field_id']}\n";
-                $responseText .= "{$field['field_name']}\n";
-                $responseText .= "{$field['field_value']}\n";
-            }
+            $response_data = [
+                'lead_id' => $leadArray['id'],
+                'contact_id' => $contact['id'],
+                'custom_fields' => $allCustomFields
+            ];
 
-            return response($responseText, 200, ['Content-Type' => 'text/plain']);
+            return response()->json($response_data);
 
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
