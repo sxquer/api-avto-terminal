@@ -86,4 +86,16 @@ class AmoCRMController extends Controller
             }
         }
     }
+
+    public function getLeadData(Request $request, $id)
+    {
+        try {
+            // Получение сделки вместе с контактами
+            $lead = $this->apiClient->leads()->getOne($id, ['contacts']);
+
+            return response()->json($lead->toArray());
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
 }

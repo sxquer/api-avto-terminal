@@ -18,6 +18,7 @@ Route::get('/user', function (Request $request) {
 
 Route::get('/amocrm/info', [AmoCRMController::class, 'info']);
 Route::get('/amocrm/export-xml', [AmoCRMController::class, 'exportToXml']);
+Route::get('/amocrm/lead/{id}', [AmoCRMController::class, 'getLeadData']);
 
 Route::post('/setup-test-user', function () {
     $user = User::firstOrCreate(
