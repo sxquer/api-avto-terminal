@@ -93,7 +93,20 @@ class AmoCRMController extends Controller
             // Получение сделки вместе с контактами
             $lead = $this->apiClient->leads()->getOne($id, ['contacts']);
 
-            return response()->json($lead->toArray());
+            $leadArray = $lead->toArray();
+
+            if (isset($leadArray['contacts'])) {
+                $contactIds = array_map(function ($contact) {
+                    return $contact['id'];
+                }, $leadArray['contacts']);
+
+                if (!empty($contactIds)) {
+                    $contacts = $this->apiClient->contacts()->get($contactIds);
+                    $leadArray['contacts'] = $contacts->toArray();
+                }
+            }
+
+            return response()->json($leadArray);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
