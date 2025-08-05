@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use AmoCRM\Client\AmoCRMApiClient;
 use Illuminate\Http\Request;
 use League\OAuth2\Client\Token\AccessToken;
+use AmoCRM\Filters\ContactsFilter;
 
 class AmoCRMController extends Controller
 {
@@ -101,7 +102,9 @@ class AmoCRMController extends Controller
                 }, $leadArray['contacts']);
 
                 if (!empty($contactIds)) {
-                    $contacts = $this->apiClient->contacts()->get($contactIds);
+                    $filter = new ContactsFilter();
+                    $filter->setIds($contactIds);
+                    $contacts = $this->apiClient->contacts()->get($filter);
                     $leadArray['contacts'] = $contacts->toArray();
                 }
             }

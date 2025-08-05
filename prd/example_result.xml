@@ -1,37 +1,41 @@
 <?xml version="1.0" encoding="windows-1251"?>
 <AltaPassengerDeclaration>
-	<DeclarantPerson_PersonSurname>ИВАНОВ</DeclarantPerson_PersonSurname>
-	<DeclarantPerson_PersonName>ИВАН</DeclarantPerson_PersonName>
-	<DeclarantPerson_PersonMiddleName>ИВАНОВИЧ</DeclarantPerson_PersonMiddleName>
-	<DeclarantPerson_BirthDate>1992-03-23</DeclarantPerson_BirthDate>
-	<DeclarantPerson_INN>165126873204</DeclarantPerson_INN>
+	<DeclarantPerson_PersonSurname>{ИВАНОВ}</DeclarantPerson_PersonSurname>
+	<DeclarantPerson_PersonName>{ИВАН}</DeclarantPerson_PersonName>
+	<DeclarantPerson_PersonMiddleName>{ИВАНОВИЧ}</DeclarantPerson_PersonMiddleName>
+	<DeclarantPerson_BirthDate>{1992-03-23}</DeclarantPerson_BirthDate>
+	<DeclarantPerson_INN>{165126873204}</DeclarantPerson_INN>
+
     <DeclarantPerson_PersonIdCard_IdentityCardCode>RU01001</DeclarantPerson_PersonIdCard_IdentityCardCode>
 	<DeclarantPerson_PersonIdCard_IdentityCardName>ПАСПОРТ</DeclarantPerson_PersonIdCard_IdentityCardName>
 	<DeclarantPerson_PersonIdCard_FullIdentityCardName>ПАСПОРТ ГРАЖДАНИНА РФ</DeclarantPerson_PersonIdCard_FullIdentityCardName>
 	<DeclarantPerson_PersonIdCard_CountryCode>RU</DeclarantPerson_PersonIdCard_CountryCode>
-	<DeclarantPerson_PersonIdCard_IdentityCardSeries>92 10</DeclarantPerson_PersonIdCard_IdentityCardSeries>
-	<DeclarantPerson_PersonIdCard_IdentityCardNumber>159759</DeclarantPerson_PersonIdCard_IdentityCardNumber>
-	<DeclarantPerson_PersonIdCard_OrganizationName>ОУФМС ПО ШАБЛОННЫМ ДОКУМЕНТАМ</DeclarantPerson_PersonIdCard_OrganizationName>
-	<DeclarantPerson_PersonIdCard_IdentityCardDate>2012-06-08</DeclarantPerson_PersonIdCard_IdentityCardDate>
-	<DeclarantPerson_PersonIdCard_IssuerCode>160-014</DeclarantPerson_PersonIdCard_IssuerCode>
+	<DeclarantPerson_PersonIdCard_IdentityCardSeries>{92 10}</DeclarantPerson_PersonIdCard_IdentityCardSeries>
+	<DeclarantPerson_PersonIdCard_IdentityCardNumber>{159759}</DeclarantPerson_PersonIdCard_IdentityCardNumber>
+	<DeclarantPerson_PersonIdCard_OrganizationName>{ОУФМС ПО ШАБЛОННЫМ ДОКУМЕНТАМ}</DeclarantPerson_PersonIdCard_OrganizationName>
+	<DeclarantPerson_PersonIdCard_IdentityCardDate>{2012-06-08}</DeclarantPerson_PersonIdCard_IdentityCardDate>
+	<DeclarantPerson_PersonIdCard_IssuerCode>{160-014}</DeclarantPerson_PersonIdCard_IssuerCode>
+
     <DeclarantPerson_Address>
         <AddressKindCode>1</AddressKindCode>
-		<Region>ПРИМОРСКИЙ КРАЙ</Region>
-		<District></District>
-		<Town>ВЛАДИВОСТОК</Town>
-		<City></City>
-		<StreetHouse>50 ЛЕТ ВЛКСМ</StreetHouse>
-		<House>8Б</House>
-		<Room>43</Room>
+		<Region>{ПРИМОРСКИЙ КРАЙ}</Region>
+		<District>{}</District>
+		<Town>{ВЛАДИВОСТОК}</Town>
+		<City>{}</City>
+		<StreetHouse>{50 ЛЕТ ВЛКСМ}</StreetHouse>
+		<House>{8Б}</House>
+		<Room>{43}</Room>
 		<CountryCode>RU</CountryCode>
 		<CounryName>РОССИЯ</CounryName>
 	</DeclarantPerson_Address>
+
     <TransportMeans_TransferPurposeCode>1</TransportMeans_TransferPurposeCode>
+    
 	<TransportMeans_TransportMeansDetails>
-		<Mark>HONDA</Mark>
-		<Model>UR-V</Model>
-		<VINID>LVHTG6857N7007563</VINID>
-		<BodyID>LVHTG6857N7007563</BodyID>
+		<Mark>{HONDA}</Mark>
+		<Model>{UR-V}</Model>
+		<VINID>{LVHTG6857N7007563}</VINID>
+		<BodyID>{LVHTG6857N7007563}</BodyID>
 		<TransportModeCode>30</TransportModeCode>
 		<TransportMeansRegId>ОТСУТСТВУЕТ</TransportMeansRegId>
 		<ChassisID>ОТСУТСТВУЕТ</ChassisID>
@@ -42,12 +46,14 @@
 	<FilledPerson_SigningDetails_PersonName>ВИТАЛИЙ</FilledPerson_SigningDetails_PersonName>
 	<FilledPerson_SigningDetails_PersonMiddleName>СЕРГЕЕВИЧ</FilledPerson_SigningDetails_PersonMiddleName>
 	<FilledPerson_SigningDetails_PersonPost>ГЕНЕРАЛЬНЫЙ ДИРЕКТОР</FilledPerson_SigningDetails_PersonPost>
-	<RoleCode>2</RoleCode>
+	
+    <RoleCode>2</RoleCode>
+
 	<SignatoryRepresentativeDetails_BrokerRegistryDocDetails_DocKindCode>09034</SignatoryRepresentativeDetails_BrokerRegistryDocDetails_DocKindCode>
 	<SignatoryRepresentativeDetails_BrokerRegistryDocDetails_RegistrationNumberId>1695</SignatoryRepresentativeDetails_BrokerRegistryDocDetails_RegistrationNumberId>
     <SignatoryRepresentativeDetails_RepresentativeContractDetails_PrDocumentName>ДОГОВОР С ТАМОЖЕННЫМ ПРЕДСТАВИТЕЛЕМ</SignatoryRepresentativeDetails_RepresentativeContractDetails_PrDocumentName>
-    <SignatoryRepresentativeDetails_RepresentativeContractDetails_PrDocumentNumber>ВАШ_ID_СДЕЛКИ</SignatoryRepresentativeDetails_RepresentativeContractDetails_PrDocumentNumber>
-    <SignatoryRepresentativeDetails_RepresentativeContractDetails_PrDocumentDate>ГГГГ-ММ-ДД</SignatoryRepresentativeDetails_RepresentativeContractDetails_PrDocumentDate>
+    <SignatoryRepresentativeDetails_RepresentativeContractDetails_PrDocumentNumber>{ВАШ_ID_СДЕЛКИ}</SignatoryRepresentativeDetails_RepresentativeContractDetails_PrDocumentNumber>
+    <SignatoryRepresentativeDetails_RepresentativeContractDetails_PrDocumentDate>{ГГГГ-ММ-ДД}</SignatoryRepresentativeDetails_RepresentativeContractDetails_PrDocumentDate>
 
 	<ElectronicDocumentSign>ЭД</ElectronicDocumentSign>
 </AltaPassengerDeclaration>
