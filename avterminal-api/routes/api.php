@@ -16,10 +16,13 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
-Route::get('/amocrm/info', [AmoCRMController::class, 'info']);
-Route::get('/amocrm/export-xml', [AmoCRMController::class, 'exportToXml']);
-Route::get('/amocrm/lead/{id}', [AmoCRMController::class, 'getLeadData']);
-Route::get('/amocrm/lead/{id}/formatted', [AmoCRMController::class, 'getFormattedLeadAndContactData']);
+
+Route::middleware('auth:sanctum')->prefix('amocrm')->group(function () {
+    Route::get('/info', [AmoCRMController::class, 'info']);
+    Route::get('/export-xml', [AmoCRMController::class, 'exportToXml']);
+    Route::get('/lead/{id}', [AmoCRMController::class, 'getLeadData']);
+    Route::get('/lead/{id}/formatted', [AmoCRMController::class, 'getFormattedLeadAndContactData']);
+});
 
 Route::post('/setup-test-user', function () {
     $user = User::firstOrCreate(
