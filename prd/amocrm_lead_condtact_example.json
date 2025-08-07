@@ -1,0 +1,593 @@
+{
+  "name": "MAZDA CX-5 7681",
+  "price": 67000,
+  "responsible_user_id": 10865578,
+  "group_id": 548334,
+  "status_id": 62360974,
+  "pipeline_id": 7523034,
+  "loss_reason_id": null,
+  "source_id": null,
+  "created_by": 11360522,
+  "updated_by": 10865230,
+  "created_at": 1753386231,
+  "updated_at": 1754114813,
+  "closed_at": null,
+  "closest_task_at": null,
+  "is_deleted": false,
+  "custom_fields_values": [
+    {
+      "field_id": 808681,
+      "field_code": null,
+      "field_name": "VIN",
+      "field_type": "text",
+      "values": [
+        {
+          "value": "LVRHDCAC1SN577681"
+        }
+      ]
+    },
+    {
+      "field_id": 808679,
+      "field_code": null,
+      "field_name": "М\u0430\u0440к\u0430",
+      "field_type": "text",
+      "values": [
+        {
+          "value": "MAZDA"
+        }
+      ]
+    },
+    {
+      "field_id": 808675,
+      "field_code": null,
+      "field_name": "Мо\u0434\u0435ль",
+      "field_type": "text",
+      "values": [
+        {
+          "value": "CX-5"
+        }
+      ]
+    },
+    {
+      "field_id": 917427,
+      "field_code": null,
+      "field_name": "\u0412\u0438\u0434 кл\u0438\u0435н\u0442\u0430",
+      "field_type": "select",
+      "values": [
+        {
+          "value": "\u0424\u0438\u0437. л\u0438\u0446о",
+          "enum_id": 543351,
+          "enum_code": null
+        }
+      ]
+    },
+    {
+      "field_id": 969469,
+      "field_code": null,
+      "field_name": "\u0421кл\u0430\u0434",
+      "field_type": "select",
+      "values": [
+        {
+          "value": "\u0410\u0432\u0442о \u0422\u0435\u0440м\u0438н\u0430л",
+          "enum_id": 1216561,
+          "enum_code": null
+        }
+      ]
+    },
+    {
+      "field_id": 897663,
+      "field_code": null,
+      "field_name": "\u0414о 3 \u0442н (\u0421\u0442\u0430\u0432к\u0430 П\u0420\u0420 + 14 \u0441\u0443\u0442ок \u0445\u0440)",
+      "field_type": "numeric",
+      "values": [
+        {
+          "value": "12000"
+        }
+      ]
+    },
+    {
+      "field_id": 897665,
+      "field_code": null,
+      "field_name": "\u0414о 3 \u0442н (\u0421\u0432ы\u0448\u0435 14 \u0441\u0443\u0442ок \u0445\u0440)",
+      "field_type": "numeric",
+      "values": [
+        {
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "field_id": 897667,
+      "field_code": null,
+      "field_name": "О\u0442 3 \u0442н \u0434о 5 \u0442н (\u0421\u0442\u0430\u0432к\u0430 П\u0420\u0420 + 14 \u0441\u0443\u0442ок \u0445\u0440)",
+      "field_type": "numeric",
+      "values": [
+        {
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "field_id": 897669,
+      "field_code": null,
+      "field_name": "О\u0442 3 \u0442н \u0434о 5 \u0442н (\u0421\u0432ы\u0448\u0435 14 \u0441\u0443\u0442ок \u0445\u0440)",
+      "field_type": "numeric",
+      "values": [
+        {
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "field_id": 897671,
+      "field_code": null,
+      "field_name": "О\u0442 5 \u0442н \u0434о 10 \u0442н (\u0421\u0442\u0430\u0432к\u0430 П\u0420\u0420 + 14 \u0441\u0443\u0442ок \u0445\u0440)",
+      "field_type": "numeric",
+      "values": [
+        {
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "field_id": 897673,
+      "field_code": null,
+      "field_name": "О\u0442 5 \u0442н \u0434о 10 \u0442н (\u0421\u0432ы\u0448\u0435 14 \u0441\u0443\u0442ок \u0445\u0440)",
+      "field_type": "numeric",
+      "values": [
+        {
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "field_id": 897675,
+      "field_code": null,
+      "field_name": "О\u0442 10 \u0442н \u0438 \u0431ол\u0435\u0435 (\u0421\u0442\u0430\u0432к\u0430 П\u0420\u0420 + 14 \u0441\u0443\u0442ок \u0445\u0440)",
+      "field_type": "numeric",
+      "values": [
+        {
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "field_id": 897677,
+      "field_code": null,
+      "field_name": "О\u0442 10 \u0442н \u0438 \u0431ол\u0435\u0435 (\u0421\u0432ы\u0448\u0435 14 \u0441\u0443\u0442ок \u0445\u0440)",
+      "field_type": "numeric",
+      "values": [
+        {
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "field_id": 916195,
+      "field_code": null,
+      "field_name": "О\u0444о\u0440мл\u0435н\u0438\u0435 П\u0422\u0414",
+      "field_type": "numeric",
+      "values": [
+        {
+          "value": "22000"
+        }
+      ]
+    },
+    {
+      "field_id": 916199,
+      "field_code": null,
+      "field_name": "О\u0444о\u0440мл\u0435н\u0438\u0435 \u0442\u0440\u0430н\u0437\u0438\u0442но\u0439 \u0434\u0435кл\u0430\u0440\u0430\u0446\u0438\u0438",
+      "field_type": "numeric",
+      "values": [
+        {
+          "value": "11000"
+        }
+      ]
+    },
+    {
+      "field_id": 916203,
+      "field_code": null,
+      "field_name": "О\u0444о\u0440мл\u0435н\u0438\u0435 \u0437\u0430я\u0432к\u0438 н\u0430 п\u0440о\u0432\u0435\u0434\u0435н\u0438\u0435 \u0430\u0432\u0442о\u0442\u0435\u0445н\u0438\u0447\u0435\u0441ко\u0439 эк\u0441п\u0435\u0440\u0442\u0438\u0437ы",
+      "field_type": "numeric",
+      "values": [
+        {
+          "value": "2000"
+        }
+      ]
+    },
+    {
+      "field_id": 916205,
+      "field_code": null,
+      "field_name": "П\u0440о\u0445о\u0436\u0434\u0435н\u0438\u0435 л\u0430\u0431о\u0440\u0430\u0442о\u0440\u0438\u0438 \u0434ля пол\u0443\u0447\u0435н\u0438я \u0421\u0411К\u0422\u0421 \u0438 \u0432ы\u0434\u0430\u0447\u0438 ЭП\u0422\u0421",
+      "field_type": "numeric",
+      "values": [
+        {
+          "value": "20000"
+        }
+      ]
+    },
+    {
+      "field_id": 916207,
+      "field_code": null,
+      "field_name": "\u0425\u0440\u0430н\u0435н\u0438\u0435 н\u0430 \u0421\u0412\u0425",
+      "field_type": "numeric",
+      "values": [
+        {
+          "value": "12000"
+        }
+      ]
+    },
+    {
+      "field_id": 966373,
+      "field_code": null,
+      "field_name": "Ло\u0433\u0438\u0441\u0442\u0438к\u0430",
+      "field_type": "numeric",
+      "values": [
+        {
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "field_id": 966649,
+      "field_code": null,
+      "field_name": "\u0421\u0442о\u0438мо\u0441\u0442ь п\u0435\u0440\u0435\u0432о\u0437к\u0438",
+      "field_type": "text",
+      "values": [
+        {
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "field_id": 915583,
+      "field_code": null,
+      "field_name": "\u0414\u0430\u0442\u0430 п\u0440\u0438ня\u0442\u0438я",
+      "field_type": "date",
+      "values": [
+        {
+          "value": "2025-07-28T14:00:00.000000Z"
+        }
+      ]
+    },
+    {
+      "field_id": 915591,
+      "field_code": null,
+      "field_name": "\u0414\u0430\u0442\u0430 \u0432ы\u0434\u0430\u0447\u0438",
+      "field_type": "date",
+      "values": [
+        {
+          "value": "2025-07-23T14:00:00.000000Z"
+        }
+      ]
+    },
+    {
+      "field_id": 915599,
+      "field_code": null,
+      "field_name": "\u0421\u0442о\u0438мо\u0441\u0442ь \u0445\u0440\u0430н\u0435н\u0438я \u0441\u0432ы\u0448\u0435",
+      "field_type": "numeric",
+      "values": [
+        {
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "field_id": 970369,
+      "field_code": null,
+      "field_name": "К\u0432\u0438\u0442\u0430н\u0446\u0438я",
+      "field_type": "url",
+      "values": [
+        {
+          "value": "https://drive.google.com/drive/folders/1ZSulYjXpPl0RVyiAVV7UUE1ngJC4TZlG?usp=drive_link"
+        }
+      ]
+    },
+    {
+      "field_id": 928437,
+      "field_code": null,
+      "field_name": "\u0414ок\u0443м\u0435н\u0442ы (\u0424\u0438\u0437.л\u0438\u0446о)",
+      "field_type": "multiselect",
+      "values": [
+        {
+          "value": "Но\u0442\u0430\u0440\u0438\u0430льно \u0437\u0430\u0432\u0435\u0440\u0435нн\u0430я \u0432ып\u0438\u0441к\u0430 \u0438\u0437 п\u0430\u0441по\u0440\u0442\u0430",
+          "enum_id": 562805
+        }
+      ]
+    }
+  ],
+  "score": null,
+  "account_id": 31431702,
+  "id": 23458811,
+  "company": {
+    "name": null,
+    "responsible_user_id": null,
+    "group_id": null,
+    "created_by": null,
+    "updated_by": null,
+    "created_at": null,
+    "updated_at": null,
+    "closest_task_at": null,
+    "custom_fields_values": null,
+    "account_id": null,
+    "id": 14034525
+  },
+  "contacts": [
+    {
+      "name": "\u0428\u0430\u0434\u0442 \u0412\u0430\u0434\u0438м Э\u0432\u0430ль\u0434о\u0432\u0438\u0447",
+      "first_name": "\u0428\u0430\u0434\u0442 \u0412\u0430\u0434\u0438м Э\u0432\u0430ль\u0434о\u0432\u0438\u0447",
+      "last_name": "",
+      "responsible_user_id": 10865578,
+      "group_id": 548334,
+      "created_by": 11360522,
+      "updated_by": 0,
+      "created_at": 1753386231,
+      "updated_at": 1753971934,
+      "closest_task_at": null,
+      "custom_fields_values": [
+        {
+          "field_id": 955217,
+          "field_code": null,
+          "field_name": "\u0418НН",
+          "field_type": "text",
+          "values": [
+            {
+              "value": "190700001987"
+            }
+          ]
+        },
+        {
+          "field_id": 783865,
+          "field_code": null,
+          "field_name": "\u0414\u0435нь \u0440о\u0436\u0434\u0435н\u0438я",
+          "field_type": "birthday",
+          "values": [
+            {
+              "value": "1967-07-08T14:00:00.000000Z"
+            }
+          ]
+        },
+        {
+          "field_id": 945706,
+          "field_code": null,
+          "field_name": "\u0421Н\u0418Л\u0421",
+          "field_type": "text",
+          "values": [
+            {
+              "value": "070-498-930 89"
+            }
+          ]
+        },
+        {
+          "field_id": 895289,
+          "field_code": null,
+          "field_name": "\u0421\u0435\u0440\u0438я п\u0430\u0441по\u0440\u0442\u0430",
+          "field_type": "text",
+          "values": [
+            {
+              "value": "9511"
+            }
+          ]
+        },
+        {
+          "field_id": 945334,
+          "field_code": null,
+          "field_name": "Ном\u0435\u0440 п\u0430\u0441по\u0440\u0442\u0430",
+          "field_type": "text",
+          "values": [
+            {
+              "value": "793527"
+            }
+          ]
+        },
+        {
+          "field_id": 808693,
+          "field_code": null,
+          "field_name": "К\u0435м \u0432ы\u0434\u0430н",
+          "field_type": "text",
+          "values": [
+            {
+              "value": "\u0422П \u0423\u0424М\u0421 \u0420о\u0441\u0441\u0438\u0438 по \u0420\u0435\u0441п\u0443\u0431л\u0438к\u0435 \u0425\u0430к\u0430\u0441\u0438я \u0432 \u0411о\u0433\u0440\u0430\u0434\u0441ком \u0440\u0430\u0439он\u0435"
+            }
+          ]
+        },
+        {
+          "field_id": 808757,
+          "field_code": null,
+          "field_name": "\u0414\u0430\u0442\u0430 \u0432ы\u0434\u0430\u0447\u0438",
+          "field_type": "date",
+          "values": [
+            {
+              "value": "2012-07-23T13:00:00.000000Z"
+            }
+          ]
+        },
+        {
+          "field_id": 808695,
+          "field_code": null,
+          "field_name": "Ко\u0434 по\u0434\u0440\u0430\u0437\u0434\u0435л\u0435н\u0438я",
+          "field_type": "text",
+          "values": [
+            {
+              "value": "190-011"
+            }
+          ]
+        },
+        {
+          "field_id": 972879,
+          "field_code": null,
+          "field_name": "\u0421\u0443\u0431ъ\u0435к\u0442 \u0444\u0435\u0434\u0435\u0440\u0430\u0446\u0438\u0438",
+          "field_type": "text",
+          "values": [
+            {
+              "value": "\u0420\u0435\u0441п. \u0425\u0430к\u0430\u0441\u0438я"
+            }
+          ]
+        },
+        {
+          "field_id": 972881,
+          "field_code": null,
+          "field_name": "\u0420\u0430\u0439он",
+          "field_type": "text",
+          "values": [
+            {
+              "value": "\u0411о\u0433\u0440\u0430\u0434\u0441к\u0438\u0439"
+            }
+          ]
+        },
+        {
+          "field_id": 972883,
+          "field_code": null,
+          "field_name": "\u0413о\u0440о\u0434",
+          "field_type": "text",
+          "values": [
+            {
+              "value": "\u0411о\u0433\u0440\u0430\u0434"
+            }
+          ]
+        },
+        {
+          "field_id": 972887,
+          "field_code": null,
+          "field_name": "\u0423л\u0438\u0446\u0430",
+          "field_type": "text",
+          "values": [
+            {
+              "value": "\u0428кольн\u0430я"
+            }
+          ]
+        },
+        {
+          "field_id": 972889,
+          "field_code": null,
+          "field_name": "\u0414ом",
+          "field_type": "text",
+          "values": [
+            {
+              "value": "3\u0410"
+            }
+          ]
+        },
+        {
+          "field_id": 972891,
+          "field_code": null,
+          "field_name": "К\u0432\u0430\u0440\u0442\u0438\u0440\u0430",
+          "field_type": "text",
+          "values": [
+            {
+              "value": "1"
+            }
+          ]
+        },
+        {
+          "field_id": 947713,
+          "field_code": null,
+          "field_name": "\u0414\u0430\u0442\u0430 \u0434о\u0433о\u0432о\u0440\u0430 (\u0444\u0438к\u0441.к)",
+          "field_type": "date",
+          "values": [
+            {
+              "value": "2025-07-23T14:00:00.000000Z"
+            }
+          ]
+        },
+        {
+          "field_id": 947715,
+          "field_code": null,
+          "field_name": "\u0414\u0430\u0442\u0430 окон\u0447\u0430н\u0438я \u0434о\u0433о\u0432о\u0440\u0430 (\u0444\u0438к\u0441.к)",
+          "field_type": "date",
+          "values": [
+            {
+              "value": "2026-07-23T14:00:00.000000Z"
+            }
+          ]
+        },
+        {
+          "field_id": 134111,
+          "field_code": "PHONE",
+          "field_name": "\u0422\u0435л\u0435\u0444он",
+          "field_type": "multitext",
+          "values": [
+            {
+              "value": "+79831941835",
+              "enum_id": 71081,
+              "enum_code": "MOB"
+            }
+          ]
+        },
+        {
+          "field_id": 134113,
+          "field_code": "EMAIL",
+          "field_name": "Email",
+          "field_type": "multitext",
+          "values": [
+            {
+              "value": "bograd19@yandex.ru",
+              "enum_id": 71091,
+              "enum_code": "PRIV"
+            }
+          ]
+        },
+        {
+          "field_id": 947717,
+          "field_code": null,
+          "field_name": "\u0414\u0430\u0442\u0430 окон\u0447\u0430н\u0438я \u0434о\u0433о\u0432о\u0440\u0430 (к)",
+          "field_type": "date",
+          "values": [
+            {
+              "value": "2026-07-24T14:00:00.000000Z"
+            }
+          ]
+        },
+        {
+          "field_id": 974793,
+          "field_code": null,
+          "field_name": "\u0424\u0430м\u0438л\u0438я",
+          "field_type": "text",
+          "values": [
+            {
+              "value": "\u0428\u0430\u0434\u0442"
+            }
+          ]
+        },
+        {
+          "field_id": 974795,
+          "field_code": null,
+          "field_name": "\u0418мя",
+          "field_type": "text",
+          "values": [
+            {
+              "value": "\u0412\u0430\u0434\u0438м"
+            }
+          ]
+        },
+        {
+          "field_id": 974797,
+          "field_code": null,
+          "field_name": "О\u0442\u0447\u0435\u0441\u0442\u0432о",
+          "field_type": "text",
+          "values": [
+            {
+              "value": "Э\u0432\u0430ль\u0434о\u0432\u0438\u0447"
+            }
+          ]
+        }
+      ],
+      "account_id": 31431702,
+      "is_unsorted": false,
+      "id": 26757963,
+      "company": {
+        "name": null,
+        "responsible_user_id": null,
+        "group_id": null,
+        "created_by": null,
+        "updated_by": null,
+        "created_at": null,
+        "updated_at": null,
+        "closest_task_at": null,
+        "custom_fields_values": null,
+        "account_id": null,
+        "id": 14034525
+      }
+    }
+  ]
+}
