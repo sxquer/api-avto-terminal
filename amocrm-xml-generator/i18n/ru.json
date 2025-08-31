@@ -1,0 +1,19 @@
+{
+  "widget": {
+    "name": "Альта",
+    "short_description": "Создание XML файла для сделки",
+    "description": "Виджет для генерации и скачивания XML-файла на основе данных сделки.",
+    "tour_description": "Этот виджет позволяет создавать XML файлы прямо из карточки сделки."
+  },
+  "settings": {
+    "bearer_token": "Bearer Token"
+  },
+  "actions": {
+    "create_xml": "Создать XML"
+  },
+  "messages": {
+    "no_lead_id": "Не удалось получить ID сделки.",
+    "no_bearer_token": "Bearer токен не найден в настройках виджета.",
+    "xml_creation_error": "Произошла ошибка при создании XML файла."
+  }
+}

@@ -252,6 +252,10 @@ class AmoCRMController extends Controller
         $transportDetails->addChild('TransportMeansRegId', 'ОТСУТСТВУЕТ');
         $transportDetails->addChild('ChassisID', 'ОТСУТСТВУЕТ');
         $transportDetails->addChild('TypeIndicator', '1');
+        $transportDetails->addChild('TransportKindName', mb_strtoupper('Автодорожный транспорт, ЗА ИСКЛЮЧЕНИЕМ транспортных средств, указанных под кодами 31, 32', 'UTF-8'));
+
+        // MovingCode
+        $xml->addChild('MovingCode', '3');
 
         // FilledPerson_SigningDetails
         $xml->addChild('FilledPerson_SigningDetails_PersonSurname', 'ПОЛУЭКТОВ');
@@ -265,6 +269,7 @@ class AmoCRMController extends Controller
         // SignatoryRepresentativeDetails
         $xml->addChild('SignatoryRepresentativeDetails_BrokerRegistryDocDetails_DocKindCode', '09034');
         $xml->addChild('SignatoryRepresentativeDetails_BrokerRegistryDocDetails_RegistrationNumberId', '1695');
+        $xml->addChild('SignatoryRepresentativeDetails_RepresentativeContractDetails_DocKindCode', '11002');
         $xml->addChild('SignatoryRepresentativeDetails_RepresentativeContractDetails_PrDocumentName', 'ДОГОВОР С ТАМОЖЕННЫМ ПРЕДСТАВИТЕЛЕМ');
         $xml->addChild('SignatoryRepresentativeDetails_RepresentativeContractDetails_PrDocumentNumber', $leadId);
         $xml->addChild('SignatoryRepresentativeDetails_RepresentativeContractDetails_PrDocumentDate', date('Y-m-d'));
