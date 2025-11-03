@@ -17,7 +17,7 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 Route::get('/test', [AmoCRMController::class, 'testFindByVin']);
-Route::get('/amocrm/info', [AmoCRMController::class, 'getAmoCRMInfo']);
+Route::get('/amocrm/info', [AmoCRMController::class, 'info']);
 
 Route::middleware('auth:sanctum')->prefix('amocrm')->group(function () {
     
