@@ -17,12 +17,15 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 
+
 Route::middleware('auth:sanctum')->prefix('amocrm')->group(function () {
     Route::get('/info', [AmoCRMController::class, 'info']);
     Route::get('/export-xml', [AmoCRMController::class, 'exportToXml']);
     Route::get('/lead/{id}', [AmoCRMController::class, 'getLeadData']);
     Route::get('/lead/{id}/formatted', [AmoCRMController::class, 'getFormattedLeadAndContactData']);
     Route::get('/lead/{id}/xml', [AmoCRMController::class, 'generateXmlByLeadId']);
+    
+
 });
 
 Route::post('/setup-test-user', function () {

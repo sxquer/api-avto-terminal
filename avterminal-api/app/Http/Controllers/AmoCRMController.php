@@ -277,4 +277,82 @@ class AmoCRMController extends Controller
         // ElectronicDocumentSign
         $xml->addChild('ElectronicDocumentSign', 'ЭД');
     }
+
+    public function findLeadByVin($vin)
+    {
+        try {
+            $filter = new \AmoCRM\Filters\LeadsFilter();
+            
+            // Фильтруем по кастомному полю VIN (ID: 808681)
+            $filter->setCustomFieldsValues([
+                [
+                    'field_id' => 808681,
+                    'values' => [
+                        [
+                            'value' => $vin
+                        ]
+                    ]
+                ]
+            ]);
+            
+            // Получаем сделки с контактами
+            $leads = $this->apiClient->leads()->get($filter, ['contacts']);
+            
+            if ($leads->count() === 0) {
+                return null;
+            }
+            
+            // Возвращаем первую найденную сделку
+            return $leads->first();
+            
+        } catch (\Exception $e) {
+            throw $e;
+        }
+    }
+
+    public function testFindByVin(Request $request)
+    {
+        try {
+            // Получаем VIN из GET параметра
+            $vin = $request->query('vin');
+            
+            if (empty($vin)) {
+                return response()->json([
+                    'error' => 'VIN parameter is required'
+                ], 400);
+            }
+            
+            // Ищем сделку по VIN
+            $lead = $this->findLeadByVin($vin);
+            
+            if (!$lead) {
+                return response()->json([
+                    'error' => 'Lead not found',
+                    'vin' => $vin
+                ], 404);
+            }
+            
+            $leadArray = $lead->toArray();
+            
+            // Формируем ответ с основными полями
+            $response = [
+                'lead_id' => $leadArray['id'],
+                'name' => $leadArray['name'],
+                'price' => $leadArray['price'],
+                'status_id' => $leadArray['status_id'],
+                'created_at' => $leadArray['created_at'],
+                'updated_at' => $leadArray['updated_at'],
+                'responsible_user_id' => $leadArray['responsible_user_id'],
+                'custom_fields' => $leadArray['custom_fields_values'] ?? [],
+                'full_data' => $leadArray // Полные данные для отладки
+            ];
+            
+            return response()->json($response);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
