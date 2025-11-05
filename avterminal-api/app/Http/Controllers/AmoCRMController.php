@@ -2,63 +2,43 @@
 
 namespace App\Http\Controllers;
 
-use AmoCRM\Client\AmoCRMApiClient;
+use App\Services\AmoCRM\AmoCRMService;
+use App\Services\AmoCRM\CustomFieldService;
+use App\Services\AmoCRM\LeadService;
+use App\Services\AmoCRM\XmlGeneratorService;
 use Illuminate\Http\Request;
-use League\OAuth2\Client\Token\AccessToken;
-use AmoCRM\Filters\ContactsFilter;
 
 class AmoCRMController extends Controller
 {
-    protected $apiClient;
+    public function __construct(
+        private AmoCRMService $amoCRMService,
+        private LeadService $leadService,
+        private CustomFieldService $customFieldService,
+        private XmlGeneratorService $xmlGeneratorService
+    ) {}
 
-    public function __construct()
-    {
-        $config = config('amocrm');
-
-        // Создаем apiClient, используя данные из конфигурации
-        $apiClient = new AmoCRMApiClient($config['client_id'], $config['client_secret']);
-
-        // Устанавливаем домен
-        $apiClient->setAccountBaseDomain($config['subdomain'] . '.amocrm.ru');
-
-        // Создаем объект токена из долгосрочного ключа из конфигурации
-        $accessToken = new AccessToken([
-            'access_token' => $config['long_lived_token'],
-            'refresh_token' => 'placeholder_refresh_token', // Токен долгосрочный, refresh_token не используется
-            'expires' => time() + 86400 * 365 * 10, // Устанавливаем "вечный" срок жизни
-        ]);
-
-        
-        $apiClient->setAccessToken($accessToken);
-        $this->apiClient = $apiClient;
-    }
-
+    /**
+     * Получить информацию о всех кастомных полях
+     */
     public function info()
     {
         try {
-            // Получение всех полей для сделок
-            $leadsCustomFields = $this->apiClient->customFields('leads')->get();
-
-            // Получение всех полей для контактов
-            $contactsCustomFields = $this->apiClient->customFields('contacts')->get();
-
-            return response()->json([
-                'leads_custom_fields' => $leadsCustomFields->toArray(),
-                'contacts_custom_fields' => $contactsCustomFields->toArray(),
-            ]);
+            $data = $this->amoCRMService->getFieldsInfo();
+            return response()->json($data);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 
+    /**
+     * Экспортировать информацию о полях в XML
+     */
     public function exportToXml()
     {
         try {
-            $data = $this->info()->getData(true);
-
+            $data = $this->amoCRMService->getFieldsInfo();
             $xml = new \SimpleXMLElement('<root/>');
-
-            $this->arrayToXml($data, $xml);
+            $this->xmlGeneratorService->arrayToXml($data, $xml);
 
             $headers = [
                 'Content-Type' => 'application/xml',
@@ -71,126 +51,40 @@ class AmoCRMController extends Controller
         }
     }
 
-    private function arrayToXml(array $data, \SimpleXMLElement $xml)
-    {
-        foreach ($data as $key => $value) {
-            if (is_array($value)) {
-                if (!is_numeric($key)) {
-                    $subnode = $xml->addChild("$key");
-                    $this->arrayToXml($value, $subnode);
-                } else {
-                    $subnode = $xml->addChild("item$key");
-                    $this->arrayToXml($value, $subnode);
-                }
-            } else {
-                $xml->addChild("$key", htmlspecialchars("$value"));
-            }
-        }
-    }
-
+    /**
+     * Получить данные сделки по ID
+     */
     public function getLeadData(Request $request, $id)
     {
         try {
-            // Получение сделки вместе с контактами
-            $lead = $this->apiClient->leads()->getOne($id, ['contacts']);
-
-            $leadArray = $lead->toArray();
-
-            if (isset($leadArray['contacts'])) {
-                $contactIds = array_map(function ($contact) {
-                    return $contact['id'];
-                }, $leadArray['contacts']);
-
-                if (!empty($contactIds)) {
-                    $filter = new ContactsFilter();
-                    $filter->setIds($contactIds);
-                    $contacts = $this->apiClient->contacts()->get($filter);
-                    $leadArray['contacts'] = $contacts->toArray();
-                }
-            }
-
-            return response()->json($leadArray);
+            $leadData = $this->leadService->getLeadData($id);
+            return response()->json($leadData);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 
+    /**
+     * Получить форматированные данные сделки и контакта
+     */
     public function getFormattedLeadAndContactData(Request $request, $id)
     {
         try {
-            // Получение сделки вместе с контактами
-            $lead = $this->apiClient->leads()->getOne($id, ['contacts']);
-            $leadArray = $lead->toArray();
-
-            $contact = null;
-            if (isset($leadArray['contacts'][0])) {
-                $contactId = $leadArray['contacts'][0]['id'];
-                $contact = $this->apiClient->contacts()->getOne($contactId);
-                $contact = $contact->toArray();
-            }
-
-            $leadCustomFields = $this->formatCustomFields($leadArray['custom_fields_values'] ?? []);
-            $contactCustomFields = $this->formatCustomFields($contact['custom_fields_values'] ?? []);
-
-            $allCustomFields = array_merge($leadCustomFields, $contactCustomFields);
-
-            $response_data = [
-                'lead_id' => $leadArray['id'],
-                'contact_id' => $contact['id'],
-                'custom_fields' => $allCustomFields
-            ];
-
-            return response()->json($response_data);
-
+            $data = $this->leadService->getFormattedLeadAndContactData($id);
+            return response()->json($data);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 
-    private function formatCustomFields(array $customFields): array
-    {
-        $formattedFields = [];
-
-        foreach ($customFields as $field) {
-            $values = [];
-            foreach ($field['values'] as $value) {
-                $processedValue = $value['value'];
-
-                // 2) Если значение дата, то отформатируй его в YYYY-MM-DD формат
-                if (in_array($field['field_type'], ['date', 'birthday']) && !empty($processedValue)) {
-                    $processedValue = date('Y-m-d', strtotime($processedValue));
-                }
-
-                // 4) Если это поле "Серия паспорта" то нужно чтобы 4 цифры были разделе по 2 пробелов
-                if ($field['field_name'] === 'Серия паспорта' && strlen($processedValue) === 4 && is_numeric($processedValue)) {
-                    $processedValue = substr($processedValue, 0, 2) . ' ' . substr($processedValue, 2, 2);
-                }
-                
-                // 3) Все значения должны быть написаны заглавными буквами
-                $values[] = mb_strtoupper($processedValue, 'UTF-8');
-            }
-            
-            // 1) Если изначально значений несколько, то объедени их через запятую
-            $finalValue = implode(',', $values);
-
-            $formattedFields[] = [
-                'field_id' => $field['field_id'],
-                'field_name' => $field['field_name'],
-                'field_value' => $finalValue,
-            ];
-        }
-
-        return $formattedFields;
-    }
-
+    /**
+     * Генерировать XML по ID сделки
+     */
     public function generateXmlByLeadId(Request $request, $id)
     {
         try {
-            $leadData = $this->getFormattedLeadAndContactData($request, $id)->getData(true);
-
-            $xml = new \SimpleXMLElement('<?xml version="1.0" encoding="windows-1251"?><AltaPassengerDeclaration/>');
-
-            $this->addXmlData($xml, $leadData, $id);
+            $leadData = $this->leadService->getFormattedLeadAndContactData($id);
+            $xml = $this->xmlGeneratorService->generatePassengerDeclarationXml($leadData, $id);
 
             $headers = [
                 'Content-Type' => 'application/xml; charset=windows-1251',
@@ -203,156 +97,382 @@ class AmoCRMController extends Controller
         }
     }
 
-    private function addXmlData(\SimpleXMLElement $xml, array $data, $leadId)
-    {
-        $fields = [];
-        foreach ($data['custom_fields'] as $field) {
-            $fields[$field['field_name']] = $field['field_value'];
-        }
-
-        // DeclarantPerson
-        $xml->addChild('DeclarantPerson_PersonSurname', $fields['Фамилия'] ?? '');
-        $xml->addChild('DeclarantPerson_PersonName', $fields['Имя'] ?? '');
-        $xml->addChild('DeclarantPerson_PersonMiddleName', $fields['Отчество'] ?? '');
-        $xml->addChild('DeclarantPerson_BirthDate', $fields['День рождения'] ?? '');
-        $xml->addChild('DeclarantPerson_INN', $fields['ИНН'] ?? '');
-
-        // DeclarantPerson_PersonIdCard
-        $xml->addChild('DeclarantPerson_PersonIdCard_IdentityCardCode', 'RU01001');
-        $xml->addChild('DeclarantPerson_PersonIdCard_IdentityCardName', 'ПАСПОРТ');
-        $xml->addChild('DeclarantPerson_PersonIdCard_FullIdentityCardName', 'ПАСПОРТ ГРАЖДАНИНА РФ');
-        $xml->addChild('DeclarantPerson_PersonIdCard_CountryCode', 'RU');
-        $xml->addChild('DeclarantPerson_PersonIdCard_IdentityCardSeries', $fields['Серия паспорта'] ?? '');
-        $xml->addChild('DeclarantPerson_PersonIdCard_IdentityCardNumber', $fields['Номер паспорта'] ?? '');
-        $xml->addChild('DeclarantPerson_PersonIdCard_OrganizationName', $fields['Кем выдан'] ?? '');
-        $xml->addChild('DeclarantPerson_PersonIdCard_IdentityCardDate', $fields['Дата выдачи'] ?? '');
-        $xml->addChild('DeclarantPerson_PersonIdCard_IssuerCode', $fields['Код подразделения'] ?? '');
-
-        // DeclarantPerson_Address
-        $address = $xml->addChild('DeclarantPerson_Address');
-        $address->addChild('AddressKindCode', '1');
-        $address->addChild('Region', $fields['Субъект федерации'] ?? '');
-        $address->addChild('District', $fields['Район'] ?? '');
-        $address->addChild('Town', $fields['Город'] ?? '');
-        $address->addChild('City', '');
-        $address->addChild('StreetHouse', $fields['Улица'] ?? '');
-        $address->addChild('House', $fields['Дом'] ?? '');
-        $address->addChild('Room', $fields['Квартира'] ?? '');
-        $address->addChild('CountryCode', 'RU');
-        $address->addChild('CounryName', 'РОССИЯ');
-
-        // TransportMeans
-        $xml->addChild('TransportMeans_TransferPurposeCode', '1');
-        $transportDetails = $xml->addChild('TransportMeans_TransportMeansDetails');
-        $transportDetails->addChild('Mark', $fields['Марка'] ?? '');
-        $transportDetails->addChild('Model', $fields['Модель'] ?? '');
-        $transportDetails->addChild('VINID', $fields['VIN'] ?? '');
-        $transportDetails->addChild('BodyID', $fields['VIN'] ?? '');
-        $transportDetails->addChild('TransportModeCode', '30');
-        $transportDetails->addChild('TransportMeansRegId', 'ОТСУТСТВУЕТ');
-        $transportDetails->addChild('ChassisID', 'ОТСУТСТВУЕТ');
-        $transportDetails->addChild('TypeIndicator', '1');
-        $transportDetails->addChild('TransportKindName', mb_strtoupper('Автодорожный транспорт, ЗА ИСКЛЮЧЕНИЕМ транспортных средств, указанных под кодами 31, 32', 'UTF-8'));
-
-        // MovingCode
-        $xml->addChild('MovingCode', '3');
-
-        // FilledPerson_SigningDetails
-        $xml->addChild('FilledPerson_SigningDetails_PersonSurname', 'ПОЛУЭКТОВ');
-        $xml->addChild('FilledPerson_SigningDetails_PersonName', 'ВИТАЛИЙ');
-        $xml->addChild('FilledPerson_SigningDetails_PersonMiddleName', 'СЕРГЕЕВИЧ');
-        $xml->addChild('FilledPerson_SigningDetails_PersonPost', 'ГЕНЕРАЛЬНЫЙ ДИРЕКТОР');
-
-        // RoleCode
-        $xml->addChild('RoleCode', '2');
-
-        // SignatoryRepresentativeDetails
-        $xml->addChild('SignatoryRepresentativeDetails_BrokerRegistryDocDetails_DocKindCode', '09034');
-        $xml->addChild('SignatoryRepresentativeDetails_BrokerRegistryDocDetails_RegistrationNumberId', '1695');
-        $xml->addChild('SignatoryRepresentativeDetails_RepresentativeContractDetails_DocKindCode', '11002');
-        $xml->addChild('SignatoryRepresentativeDetails_RepresentativeContractDetails_PrDocumentName', 'ДОГОВОР С ТАМОЖЕННЫМ ПРЕДСТАВИТЕЛЕМ');
-        $xml->addChild('SignatoryRepresentativeDetails_RepresentativeContractDetails_PrDocumentNumber', $leadId);
-        $xml->addChild('SignatoryRepresentativeDetails_RepresentativeContractDetails_PrDocumentDate', date('Y-m-d'));
-
-        // ElectronicDocumentSign
-        $xml->addChild('ElectronicDocumentSign', 'ЭД');
-    }
-
+    /**
+     * Найти сделку по VIN
+     */
     public function findLeadByVin($vin)
     {
         try {
-            $filter = new \AmoCRM\Filters\LeadsFilter();
-            
-            // Фильтруем по кастомному полю VIN (ID: 808681)
-            $filter->setCustomFieldsValues([
-                [
-                    'field_id' => 808681,
-                    'values' => [
-                        [
-                            'value' => $vin
-                        ]
-                    ]
-                ]
-            ]);
-            
-            // Получаем сделки с контактами
-            $leads = $this->apiClient->leads()->get($filter, ['contacts']);
-            
-            if ($leads->count() === 0) {
-                return null;
-            }
-            
-            // Возвращаем первую найденную сделку
-            return $leads->first();
-            
+            return $this->leadService->findLeadByVin($vin);
         } catch (\Exception $e) {
             throw $e;
         }
     }
 
+    /**
+     * Тестовый метод для поиска по VIN
+     */
     public function testFindByVin(Request $request)
     {
+        $this->customFieldService->updateLeadCustomFields(25147637, [
+            [
+                'field_key' => 'nomer_dt',
+                'value' => 'Новый номер ДТ',
+                'type' => 'text'
+            ],
+            [
+                'field_key' => 'registration_date',
+                'value' => now(),
+                'type' => 'date'
+            ]
+        ], true);
+
+        $this->leadService->updateLeadStatus(25147637, 'vipusk');
+        
+        
+        return true;
+    }
+
+    /**
+     * Получить опции enum для кастомного поля типа список
+     * 
+     * @param int $fieldId ID кастомного поля
+     * @param string $entityType Тип сущности ('leads', 'contacts', 'companies')
+     * @return array Массив в формате ["Текстовое значение" => enum_id]
+     * @throws \Exception
+     */
+    public function getCustomFieldEnumOptions($fieldId, $entityType = 'leads')
+    {
         try {
-            // Получаем VIN из GET параметра
-            $vin = $request->query('vin');
-            
-            if (empty($vin)) {
-                return response()->json([
-                    'error' => 'VIN parameter is required'
-                ], 400);
-            }
-            
-            // Ищем сделку по VIN
-            $lead = $this->findLeadByVin($vin);
-            
-            if (!$lead) {
-                return response()->json([
-                    'error' => 'Lead not found',
-                    'vin' => $vin
-                ], 404);
-            }
-            
-            $leadArray = $lead->toArray();
-            
-            // Формируем ответ с основными полями
-            $response = [
-                'lead_id' => $leadArray['id'],
-                'name' => $leadArray['name'],
-                'price' => $leadArray['price'],
-                'status_id' => $leadArray['status_id'],
-                'created_at' => $leadArray['created_at'],
-                'updated_at' => $leadArray['updated_at'],
-                'responsible_user_id' => $leadArray['responsible_user_id'],
-                'custom_fields' => $leadArray['custom_fields_values'] ?? [],
-                'full_data' => $leadArray // Полные данные для отладки
-            ];
-            
-            return response()->json($response);
-            
+            return $this->amoCRMService->getCustomFieldEnumOptions($fieldId, $entityType);
+        } catch (\Exception $e) {
+            throw $e;
+        }
+    }
+
+    /**
+     * Обновить кастомные поля лида
+     * 
+     * @param int $leadId ID лида
+     * @param array $fieldsToUpdate Массив полей для обновления
+     * @return \AmoCRM\Models\LeadModel Обновленный лид
+     * @throws \Exception
+     */
+    public function updateLeadCustomFields(int $leadId, array $fieldsToUpdate)
+    {
+        try {
+            return $this->customFieldService->updateLeadCustomFields($leadId, $fieldsToUpdate);
+        } catch (\Exception $e) {
+            throw $e;
+        }
+    }
+
+    /**
+     * Обновить статус ДТ сделки
+     * 
+     * Принимает JSON:
+     * {
+     *   "vinNum": "LSGXC8356MV107322",
+     *   "pdNum": "10716050/151025/А050168",
+     *   "status": "Регистрация ПТД",
+     *   "statusDate": "2025-10-15 16:27:11"
+     * }
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function updateDtStatus(Request $request)
+    {
+        try {
+            // Валидация входящих данных
+            $validated = $request->validate([
+                'vinNum' => 'required|string',
+                'pdNum' => 'required|string',
+                'status' => 'required|string',
+                'statusDate' => 'required|string',
+            ]);
+
+            // Получаем testMode из конфига (можно добавить в .env)
+            $testMode = config('amocrm.test_mode', false);
+
+            // Вызываем метод обработки
+            $result = $this->leadService->updateLeadFromDtStatus(
+                $validated['vinNum'],
+                $validated['pdNum'],
+                $validated['status'],
+                $validated['statusDate'],
+                $testMode
+            );
+
+            return response()->json(['message' => 'OK'], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'error' => 'Validation failed',
+                'details' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
             return response()->json([
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Запустить тестовый сценарий
+     * 
+     * @param int $testNumber Номер теста (1-10)
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function runDtStatusTest($testNumber)
+    {
+        $tests = $this->getDtStatusTests();
+        
+        if (!isset($tests[$testNumber])) {
+            return response()->json([
+                'error' => 'Тест не найден',
+                'available_tests' => array_keys($tests)
+            ], 404, ['Content-Type' => 'application/json; charset=utf-8'], JSON_UNESCAPED_UNICODE);
+        }
+        
+        $test = $tests[$testNumber];
+        
+        try {
+            $testMode = config('amocrm.test_mode', false);
+            
+            $result = $this->leadService->updateLeadFromDtStatus(
+                $test['data']['vinNum'],
+                $test['data']['pdNum'],
+                $test['data']['status'],
+                $test['data']['statusDate'],
+                $testMode
+            );
+            
+            return response()->json([
+                'test_number' => $testNumber,
+                'test_name' => $test['name'],
+                'description' => $test['description'],
+                'request_data' => $test['data'],
+                'expected_result' => $test['expected'],
+                'actual_result' => $result,
+                'status' => 'SUCCESS',
+                'message' => 'Тест выполнен успешно'
+            ], 200, ['Content-Type' => 'application/json; charset=utf-8'], JSON_UNESCAPED_UNICODE);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'test_number' => $testNumber,
+                'test_name' => $test['name'],
+                'description' => $test['description'],
+                'request_data' => $test['data'],
+                'expected_result' => $test['expected'],
+                'status' => 'FAILED',
+                'error' => $e->getMessage()
+            ], 500, ['Content-Type' => 'application/json; charset=utf-8'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    /**
+     * Получить список всех тестов
+     * 
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function listDtStatusTests()
+    {
+        $tests = $this->getDtStatusTests();
+        
+        $testList = [];
+        foreach ($tests as $number => $test) {
+            $testList[] = [
+                'number' => $number,
+                'name' => $test['name'],
+                'description' => $test['description'],
+                'url' => url("/api/test/{$number}")
+            ];
+        }
+        
+        return response()->json([
+            'total_tests' => count($testList),
+            'tests' => $testList
+        ], 200, ['Content-Type' => 'application/json; charset=utf-8'], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Получить определения всех тестов
+     * 
+     * @return array
+     */
+    private function getDtStatusTests()
+    {
+        return [
+            1 => [
+                'name' => 'Регистрация ПТД',
+                'description' => 'Тест проверяет обработку статуса "регистрация ПТД". Должна заполниться дата регистрации ДТ и сделка должна переместиться на стадию "ПТД/ДТ".',
+                'data' => [
+                    'vinNum' => 'TEST001',
+                    'pdNum' => '10716050/051125/А000001',
+                    'status' => 'регистрация ПТД',
+                    'statusDate' => '05.11.2025 10:00'
+                ],
+                'expected' => [
+                    'stage' => 'ptd/dt',
+                    'fields_updated' => ['nomer_dt', 'status_dt', 'registration_date'],
+                    'highlight_red' => false
+                ]
+            ],
+            2 => [
+                'name' => 'Выпуск без уплаты',
+                'description' => 'Тест проверяет обработку статуса "выпуск без уплаты". Должна заполниться дата выпуска ДТ и сделка должна переместиться на стадию "Выпуск ПТД/ДТ".',
+                'data' => [
+                    'vinNum' => 'TEST002',
+                    'pdNum' => '10716050/051125/А000001',
+                    'status' => 'выпуск без уплаты',
+                    'statusDate' => '05.11.2025 11:00'
+                ],
+                'expected' => [
+                    'stage' => 'vipusk',
+                    'fields_updated' => ['nomer_dt', 'status_dt', 'vipusk_date'],
+                    'highlight_red' => false
+                ]
+            ],
+            3 => [
+                'name' => 'Выпуск с уплатой',
+                'description' => 'Тест проверяет обработку статуса "выпуск с уплатой". Должна заполниться дата выпуска ДТ и сделка должна переместиться на стадию "Выпуск ПТД/ДТ".',
+                'data' => [
+                    'vinNum' => 'TEST003',
+                    'pdNum' => '10716050/051125/А000001',
+                    'status' => 'выпуск с уплатой',
+                    'statusDate' => '05.11.2025 12:00'
+                ],
+                'expected' => [
+                    'stage' => 'vipusk',
+                    'fields_updated' => ['nomer_dt', 'status_dt', 'vipusk_date'],
+                    'highlight_red' => false
+                ]
+            ],
+            4 => [
+                'name' => 'Требуется уплата (ожидание)',
+                'description' => 'Тест проверяет обработку статуса "требуется уплата". Сделка должна остаться на стадии "ПТД/ДТ" и подсветиться красным цветом.',
+                'data' => [
+                    'vinNum' => 'TEST004',
+                    'pdNum' => '10716050/051125/А000001',
+                    'status' => 'требуется уплата',
+                    'statusDate' => '05.11.2025 13:00'
+                ],
+                'expected' => [
+                    'stage' => 'ptd/dt',
+                    'fields_updated' => ['nomer_dt', 'status_dt', 'color_field_id'],
+                    'highlight_red' => true
+                ]
+            ],
+            5 => [
+                'name' => 'Ожидание решения по временному ввозу',
+                'description' => 'Тест проверяет обработку статуса "выпуск разрешен, ожидание решения по временному ввозу". Сделка должна остаться на стадии "ПТД/ДТ" и подсветиться красным цветом.',
+                'data' => [
+                    'vinNum' => 'TEST005',
+                    'pdNum' => '10716050/051125/А000001',
+                    'status' => 'выпуск разрешен, ожидание решения по временному ввозу',
+                    'statusDate' => '05.11.2025 14:00'
+                ],
+                'expected' => [
+                    'stage' => 'ptd/dt',
+                    'fields_updated' => ['nomer_dt', 'status_dt', 'color_field_id'],
+                    'highlight_red' => true
+                ]
+            ],
+            6 => [
+                'name' => 'Отказ в выпуске товаров',
+                'description' => 'Тест проверяет обработку статуса "отказ в выпуске товаров". Должна заполниться дата отказа ДТ, сделка должна переместиться на стадию "ПТД/ДТ" и подсветиться красным цветом.',
+                'data' => [
+                    'vinNum' => 'TEST006',
+                    'pdNum' => '10716050/051125/А000001',
+                    'status' => 'отказ в выпуске товаров',
+                    'statusDate' => '05.11.2025 15:00'
+                ],
+                'expected' => [
+                    'stage' => 'ptd/dt',
+                    'fields_updated' => ['nomer_dt', 'status_dt', 'refuse_date', 'color_field_id'],
+                    'highlight_red' => true
+                ]
+            ],
+            7 => [
+                'name' => 'Отказ в разрешении',
+                'description' => 'Тест проверяет обработку статуса "отказ в разрешении". Должна заполниться дата отказа ДТ, сделка должна переместиться на стадию "ПТД/ДТ" и подсветиться красным цветом.',
+                'data' => [
+                    'vinNum' => 'TEST007',
+                    'pdNum' => '10716050/051125/А000001',
+                    'status' => 'отказ в разрешении',
+                    'statusDate' => '05.11.2025 16:00'
+                ],
+                'expected' => [
+                    'stage' => 'ptd/dt',
+                    'fields_updated' => ['nomer_dt', 'status_dt', 'refuse_date', 'color_field_id'],
+                    'highlight_red' => true
+                ]
+            ],
+            8 => [
+                'name' => 'Выпуск аннулирован при отзыве ПТД',
+                'description' => 'Тест проверяет обработку статуса "выпуск товаров аннулирован при отзыве ПТД". Должна заполниться дата отказа ДТ, сделка должна переместиться на стадию "ПТД/ДТ" и подсветиться красным цветом.',
+                'data' => [
+                    'vinNum' => 'TEST008',
+                    'pdNum' => '10716050/051125/А000001',
+                    'status' => 'выпуск товаров аннулирован при отзыве ПТД',
+                    'statusDate' => '05.11.2025 17:00'
+                ],
+                'expected' => [
+                    'stage' => 'ptd/dt',
+                    'fields_updated' => ['nomer_dt', 'status_dt', 'refuse_date', 'color_field_id'],
+                    'highlight_red' => true
+                ]
+            ],
+            9 => [
+                'name' => 'Формат даты с точкой вместо двоеточия',
+                'description' => 'Тест проверяет корректную обработку альтернативного формата даты (dd.mm.yyyy hh.mm вместо dd.mm.yyyy hh:mm).',
+                'data' => [
+                    'vinNum' => 'TEST009',
+                    'pdNum' => '10716050/051125/А000001',
+                    'status' => 'регистрация ПТД',
+                    'statusDate' => '05.11.2025 18.30'
+                ],
+                'expected' => [
+                    'stage' => 'ptd/dt',
+                    'fields_updated' => ['nomer_dt', 'status_dt', 'registration_date'],
+                    'highlight_red' => false,
+                    'note' => 'Дата должна быть корректно распарсена несмотря на точку вместо двоеточия'
+                ]
+            ],
+            10 => [
+                'name' => 'Несуществующий статус (проверка ошибки)',
+                'description' => 'Тест проверяет обработку ошибки при передаче несуществующего статуса. Должна вернуться ошибка с сообщением о том, что статус не найден.',
+                'data' => [
+                    'vinNum' => 'TEST010',
+                    'pdNum' => '10716050/051125/А000010',
+                    'status' => 'несуществующий статус',
+                    'statusDate' => '05.11.2025 19:00'
+                ],
+                'expected' => [
+                    'status' => 'FAILED',
+                    'error_message' => 'Статус \'несуществующий статус\' не найден в конфигурации',
+                    'note' => 'Этот тест должен завершиться с ошибкой - это ожидаемое поведение'
+                ]
+            ],
+            11 => [
+                'name' => 'Регистрация ПТД с другим номером (проверка переноса в историю)',
+                'description' => 'Тест проверяет обработку статуса "регистрация ПТД" с номером ДТ отличным от текущего. Текущие данные ДТ должны быть перенесены в историю, поля ДТ обнулены, затем заполнены новыми данными.',
+                'data' => [
+                    'vinNum' => 'TEST011',
+                    'pdNum' => '10716050/051125/А999999',
+                    'status' => 'регистрация ПТД',
+                    'statusDate' => '05.11.2025 20:00'
+                ],
+                'expected' => [
+                    'stage' => 'ptd/dt',
+                    'fields_updated' => ['history', 'nomer_dt', 'status_dt', 'registration_date'],
+                    'highlight_red' => false,
+                    'moved_to_history' => true,
+                    'note' => 'Старые данные ДТ должны быть перенесены в поле "История ДТ", затем заполнены новые данные'
+                ]
+            ]
+        ];
     }
 }

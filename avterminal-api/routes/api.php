@@ -16,6 +16,8 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
+Route::get('/test/list', [AmoCRMController::class, 'listDtStatusTests']);
+Route::get('/test/{number}', [AmoCRMController::class, 'runDtStatusTest']);
 Route::get('/test', [AmoCRMController::class, 'testFindByVin']);
 Route::get('/amocrm/info', [AmoCRMController::class, 'info']);
 
@@ -25,6 +27,7 @@ Route::middleware('auth:sanctum')->prefix('amocrm')->group(function () {
     Route::get('/lead/{id}', [AmoCRMController::class, 'getLeadData']);
     Route::get('/lead/{id}/formatted', [AmoCRMController::class, 'getFormattedLeadAndContactData']);
     Route::get('/lead/{id}/xml', [AmoCRMController::class, 'generateXmlByLeadId']);
+    Route::post('/dt-status', [AmoCRMController::class, 'updateDtStatus']);
     
 });
 
