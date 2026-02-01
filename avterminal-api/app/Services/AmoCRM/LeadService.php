@@ -5,6 +5,7 @@ namespace App\Services\AmoCRM;
 use AmoCRM\Filters\ContactsFilter;
 use AmoCRM\Filters\LeadsFilter;
 use AmoCRM\Models\LeadModel;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Сервис для работы со сделками (leads) в AmoCRM
@@ -73,24 +74,24 @@ class LeadService
     {
         $apiClient = $this->amoCRMService->getClient();
         $filter = new LeadsFilter();
-        
+
         // Фильтруем по кастомному полю VIN (ID: 808681)
         $filter->setCustomFieldsValues([
             808681 => $vin
         ]);
 
         $leads = $apiClient->leads()->get($filter);
-        
+
         if ($leads->count() === 0) {
             return null;
         }
-        
+
         return $leads->first();
     }
 
     /**
      * Обновить статус сделки
-     * 
+     *
      * @param int $leadId ID лида
      * @param string $statusKey Ключ статуса из конфига ('ptd/dt', 'vipusk', 'svh')
      * @return LeadModel Обновленный лид
@@ -99,42 +100,42 @@ class LeadService
     public function updateLeadStatus(int $leadId, string $statusKey): LeadModel
     {
         $statusId = config("amocrm.statuses.{$statusKey}");
-        
+
         if (!$statusId) {
             throw new \Exception("Статус {$statusKey} не найден в конфигурации");
         }
-        
+
         $apiClient = $this->amoCRMService->getClient();
-        
+
         $lead = (new LeadModel())
             ->setId($leadId)
             ->setStatusId($statusId);
-        
+
         return $apiClient->leads()->updateOne($lead);
     }
 
     /**
      * Найти ID статуса по подстроке (игнорируя цифры в скобках)
-     * 
+     *
      * @param string $statusText Текст статуса без скобок (например, "выпуск с уплатой")
      * @return array|null Массив с ключами 'id' (enum_id) и 'full_text' (полный текст из конфига) или null
      */
     public function findStatusIdBySubstring(string $statusText): ?array
     {
         $statusConfig = config('amocrm.fields.status_dt.values');
-        
+
         if (!$statusConfig) {
             return null;
         }
-        
+
         // Приводим входящий текст к нижнему регистру для сравнения
         $searchText = mb_strtolower(trim($statusText), 'UTF-8');
-        
+
         foreach ($statusConfig as $configText => $enumId) {
             // Убираем часть со скобками из текста конфига
             $configTextWithoutBrackets = preg_replace('/\s*\(\d+\)\s*$/', '', $configText);
             $configTextLower = mb_strtolower(trim($configTextWithoutBrackets), 'UTF-8');
-            
+
             // Сравниваем
             if ($configTextLower === $searchText) {
                 return [
@@ -143,13 +144,13 @@ class LeadService
                 ];
             }
         }
-        
+
         return null;
     }
 
     /**
      * Обновить сделку на основе статуса ДТ
-     * 
+     *
      * @param string $vinNum VIN номер
      * @param string $pdNum Номер ДТ
      * @param string $status Текстовый статус
@@ -177,18 +178,18 @@ class LeadService
             }
             $leadId = $lead->getId();
         }
-        
+
         $moveToHistory = false;
-        
+
         // 2. Найти ID статуса по подстроке
         $statusData = $this->findStatusIdBySubstring($status);
         if (!$statusData) {
             throw new \Exception("Статус '{$status}' не найден в конфигурации");
         }
-        
+
         $statusEnumId = $statusData['id'];
         $statusFullText = $statusData['full_text'];
-        
+
         // 3. Проверить номер ДТ - правило 2.4.0
         $customFieldsValues = $lead->getCustomFieldsValues();
         if ($customFieldsValues) {
@@ -203,76 +204,112 @@ class LeadService
                 }
             }
         }
-        
+
         // 4. Конвертировать дату из формата "dd.mm.yyyy hh:mm" в timestamp
         $dateTimestamp = $this->parseDateString($statusDate);
-        
-        // 5. Подготовить поля для обновления и определить стадию
+
+        // 5. Получить текущий статус сделки для проверки "защищенных" этапов
+        $currentStatusId = $lead->getStatusId();
+
+        // 6. Проверить на "защищенные" этапы - правило защиты от излишнего "отката"
+        $restrictedStatuses = [
+            config('amocrm.statuses.svh_do2', 64976646),
+            config('amocrm.statuses.epts', 62360978),
+            config('amocrm.statuses.oplata_payment', 64577706),
+            config('amocrm.statuses.oplateno_paid', 64577710),
+            config('amocrm.statuses.yspshno_realizovano', 142),
+            config('amocrm.statuses.zakryto_ne_realizovano', 143)
+        ];
+
+        $isRestrictedStage = in_array($currentStatusId, $restrictedStatuses);
+        $stageProtectionActive = false;
+
+        // Логировать защиты стадий
+        if ($isRestrictedStage) {
+            Log::info("DT status update: защита стадии активирована", [
+                'lead_id' => $leadId,
+                'current_stage_id' => $currentStatusId,
+                'status' => $statusFullText,
+                'pd_num' => $pdNum,
+                'stage_not_changed' => true
+            ]);
+        }
+
+        // 7. Подготовить поля для обновления и определить стадию
         $fieldsToUpdate = [
             ['field_key' => 'nomer_dt', 'value' => $pdNum, 'type' => 'text'],
             ['field_key' => 'status_dt', 'value' => $statusFullText, 'type' => 'select'],
         ];
-        
+
         $stageKey = null;
         $highlightRed = false;
-        
+
         // Определяем какие поля заполнять и на какую стадию переводить
         // Правило 2.4.1 - Регистрация ПТД
         if (mb_stripos($statusFullText, 'регистрация ПТД') !== false) {
             $fieldsToUpdate[] = ['field_key' => 'registration_date', 'value' => $dateTimestamp, 'type' => 'datetime'];
-            $stageKey = 'ptd/dt';
+            $stageKey = $isRestrictedStage ? null : 'ptd/dt';
         }
         // Правило 2.4.2 - Выпуск без уплаты или с уплатой
-        elseif (mb_stripos($statusFullText, 'выпуск без уплаты') !== false || 
+        elseif (mb_stripos($statusFullText, 'выпуск без уплаты') !== false ||
                 mb_stripos($statusFullText, 'выпуск с уплатой') !== false) {
             $fieldsToUpdate[] = ['field_key' => 'vipusk_date', 'value' => $dateTimestamp, 'type' => 'datetime'];
-            $stageKey = 'vipusk';
+            $stageKey = $isRestrictedStage ? null : 'vipusk';
         }
         // Правило 2.4.3 - Отказы
         elseif (mb_stripos($statusFullText, 'отказ в выпуске товаров') !== false ||
                 mb_stripos($statusFullText, 'выпуск товаров аннулирован при отзыве ПТД') !== false ||
                 mb_stripos($statusFullText, 'отказ в разрешении') !== false) {
             $fieldsToUpdate[] = ['field_key' => 'refuse_date', 'value' => $dateTimestamp, 'type' => 'datetime'];
-            $stageKey = 'ptd/dt';
+            $stageKey = $isRestrictedStage ? null : 'ptd/dt';
             $highlightRed = true;
+            if ($isRestrictedStage) {
+                $stageProtectionActive = true;
+            }
         }
         // Правило 2.4.4 - Ожидание (требуется уплата, ожидание решения)
         elseif (mb_stripos($statusFullText, 'требуется уплата') !== false ||
                 mb_stripos($statusFullText, 'выпуск разрешен, ожидание решения по временному ввозу') !== false) {
-            $stageKey = 'ptd/dt';
+            $stageKey = $isRestrictedStage ? null : 'ptd/dt';
             $highlightRed = true;
+            if ($isRestrictedStage) {
+                $stageProtectionActive = true;
+            }
         }
-        
+
         // Если нужно подсветить красным - добавляем поле color
         if ($highlightRed) {
             $fieldsToUpdate[] = ['field_key' => 'color_field_id', 'value' => 'Красный', 'type' => 'select'];
         }
-        
-        // 6. Обновить кастомные поля (с переносом в историю если нужно)
+
+        // 8. Обновить кастомные поля (с переносом в историю если нужно)
         app(CustomFieldService::class)->updateLeadCustomFields(
             $leadId,
             $fieldsToUpdate,
             $moveToHistory
         );
-        
-        // 7. Обновить стадию сделки
+
+        // 9. Обновить стадию сделки (только если не защищена)
         if ($stageKey) {
             $this->updateLeadStatus($leadId, $stageKey);
         }
-        
+
         return [
             'lead_id' => $leadId,
             'status' => 'OK',
             'stage' => $stageKey,
             'highlight_red' => $highlightRed,
-            'moved_to_history' => $moveToHistory
+            'moved_to_history' => $moveToHistory,
+            'stage_protection_active' => $stageProtectionActive,
+            'current_stage_id' => $currentStatusId,
+            'stage_changed' => !is_null($stageKey)
         ];
     }
 
     /**
      * Парсинг строки даты в timestamp
      * Поддерживает форматы: "dd.mm.yyyy hh:mm" и "yyyy-mm-dd hh:mm:ss"
-     * 
+     *
      * @param string $dateString Строка даты
      * @return int Timestamp
      * @throws \Exception
@@ -286,23 +323,23 @@ class LeadService
             $year = $matches[3];
             $hour = $matches[4];
             $minute = $matches[5];
-            
+
             $timestamp = mktime((int)$hour, (int)$minute, 0, (int)$month, (int)$day, (int)$year);
-            
+
             if ($timestamp === false) {
                 throw new \Exception("Неверный формат даты: {$dateString}");
             }
-            
+
             return $timestamp;
         }
-        
+
         // Пробуем стандартный strtotime
         $timestamp = strtotime($dateString);
-        
+
         if ($timestamp === false) {
             throw new \Exception("Неверный формат даты: {$dateString}");
         }
-        
+
         return $timestamp;
     }
 
@@ -327,11 +364,11 @@ class LeadService
                 if ($field['field_name'] === 'Серия паспорта' && strlen($processedValue) === 4 && is_numeric($processedValue)) {
                     $processedValue = substr($processedValue, 0, 2) . ' ' . substr($processedValue, 2, 2);
                 }
-                
+
                 // Все значения должны быть написаны заглавными буквами
                 $values[] = mb_strtoupper($processedValue, 'UTF-8');
             }
-            
+
             // Если изначально значений несколько, то объединить их через запятую
             $finalValue = implode(',', $values);
 

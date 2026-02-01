@@ -472,6 +472,60 @@ class AmoCRMController extends Controller
                     'moved_to_history' => true,
                     'note' => 'Старые данные ДТ должны быть перенесены в поле "История ДТ", затем заполнены новые данные'
                 ]
+            ],
+            12 => [
+                'name' => 'Защита стадии: Регистрация ПТД на ОПЛАЧЕНО',
+                'description' => 'Тест проверяет что при статусе "регистрация ПТД" на защищенной стадии ОПЛАЧЕНО данные обновляются, но стадия не меняется.',
+                'data' => [
+                    'vinNum' => 'TEST012',
+                    'pdNum' => '10716050/051125/А000012',
+                    'status' => 'регистрация ПТД',
+                    'statusDate' => '05.11.2025 10:00'
+                ],
+                'expected' => [
+                    'stage' => null,
+                    'stage_changed' => false,
+                    'stage_protection_active' => false,
+                    'fields_updated' => ['nomer_dt', 'status_dt', 'registration_date'],
+                    'highlight_red' => false,
+                    'note' => 'Этот тест требует предварительной установки стадии на ОПЛАЧЕНО'
+                ]
+            ],
+            13 => [
+                'name' => 'Защита стадии: Выпуск с уплатой на УСПЕШНО РЕАЛИЗОВАНО',
+                'description' => 'Тест проверяет что при статусе "выпуск с уплатой" на защищенной стадии УСПЕШНО РЕАЛИЗОВАНО данные обновляются, но стадия не меняется.',
+                'data' => [
+                    'vinNum' => 'TEST013',
+                    'pdNum' => '10716050/051125/А000013',
+                    'status' => 'выпуск с уплатой',
+                    'statusDate' => '05.11.2025 11:00'
+                ],
+                'expected' => [
+                    'stage' => null,
+                    'stage_changed' => false,
+                    'stage_protection_active' => false,
+                    'fields_updated' => ['nomer_dt', 'status_dt', 'vipusk_date'],
+                    'highlight_red' => false,
+                    'note' => 'Этот тест требует предварительной установки стадии на УСПЕШНО РЕАЛИЗОВАНО'
+                ]
+            ],
+            14 => [
+                'name' => 'Защита стадии: Отказ на ЭПТС',
+                'description' => 'Тест проверяет что при статусе отказа на защищенной стадии ЭПТС данные обновляются (включая подсветку красным), но стадия не меняется.',
+                'data' => [
+                    'vinNum' => 'TEST014',
+                    'pdNum' => '10716050/051125/А000014',
+                    'status' => 'отказ в выпуске товаров',
+                    'statusDate' => '05.11.2025 12:00'
+                ],
+                'expected' => [
+                    'stage' => null,
+                    'stage_changed' => false,
+                    'stage_protection_active' => true,
+                    'fields_updated' => ['nomer_dt', 'status_dt', 'refuse_date', 'color_field_id'],
+                    'highlight_red' => true,
+                    'note' => 'Этот тест требует предварительной установки стадии на ЭПТС'
+                ]
             ]
         ];
     }
