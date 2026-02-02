@@ -308,7 +308,7 @@ class LeadService
 
     /**
      * Парсинг строки даты в timestamp
-     * Поддерживает форматы: "dd.mm.yyyy hh:mm" и "yyyy-mm-dd hh:mm:ss"
+     * Поддерживает форматы: "dd.mm.yyyy hh:mm", "dd.mm.yyyy hh.mm" и "yyyy-mm-dd hh:mm:ss"
      *
      * @param string $dateString Строка даты
      * @return int Timestamp
@@ -333,7 +333,25 @@ class LeadService
             return $timestamp;
         }
 
-        // Пробуем стандартный strtotime
+        // Пробуем разобрать формат yyyy-mm-dd hh:mm:ss
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/', $dateString, $matches)) {
+            $year = $matches[1];
+            $month = $matches[2];
+            $day = $matches[3];
+            $hour = $matches[4];
+            $minute = $matches[5];
+            $second = $matches[6];
+
+            $timestamp = mktime((int)$hour, (int)$minute, (int)$second, (int)$month, (int)$day, (int)$year);
+
+            if ($timestamp === false) {
+                throw new \Exception("Неверный формат даты: {$dateString}");
+            }
+
+            return $timestamp;
+        }
+
+        // Пробуем стандартный strtotime как fallback
         $timestamp = strtotime($dateString);
 
         if ($timestamp === false) {

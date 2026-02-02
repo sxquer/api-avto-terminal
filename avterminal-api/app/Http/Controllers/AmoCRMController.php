@@ -526,6 +526,22 @@ class AmoCRMController extends Controller
                     'highlight_red' => true,
                     'note' => 'Этот тест требует предварительной установки стадии на ЭПТС'
                 ]
+            ],
+            15 => [
+                'name' => 'Регистрация ПТД с форматом yyyy-mm-dd hh:mm:ss',
+                'description' => 'Тест проверяет обработку статуса "регистрация ПТД" с датой в формате "yyyy-mm-dd hh:mm:ss". Должна корректно распарситься дата и обновиться сделка.',
+                'data' => [
+                    'vinNum' => 'TEST015',
+                    'pdNum' => '10716050/051125/А000015',
+                    'status' => 'регистрация ПТД',
+                    'statusDate' => '2025-11-05 12:00:00'
+                ],
+                'expected' => [
+                    'stage' => 'ptd/dt',
+                    'fields_updated' => ['nomer_dt', 'status_dt', 'registration_date'],
+                    'highlight_red' => false,
+                    'note' => 'Проверка поддержки формата даты с секундами yyyy-mm-dd hh:mm:ss'
+                ]
             ]
         ];
     }
