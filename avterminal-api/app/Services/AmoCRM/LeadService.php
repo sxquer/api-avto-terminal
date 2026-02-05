@@ -324,7 +324,7 @@ class LeadService
             $hour = $matches[4];
             $minute = $matches[5];
 
-            $timestamp = mktime((int)$hour, (int)$minute, 0, (int)$month, (int)$day, (int)$year);
+            $timestamp = mktime((int)$hour - 10, (int)$minute, 0, (int)$month, (int)$day, (int)$year);
 
             if ($timestamp === false) {
                 throw new \Exception("Неверный формат даты: {$dateString}");
@@ -342,7 +342,7 @@ class LeadService
             $minute = $matches[5];
             $second = $matches[6];
 
-            $timestamp = mktime((int)$hour, (int)$minute, (int)$second, (int)$month, (int)$day, (int)$year);
+            $timestamp = mktime((int)$hour - 10, (int)$minute, (int)$second, (int)$month, (int)$day, (int)$year);
 
             if ($timestamp === false) {
                 throw new \Exception("Неверный формат даты: {$dateString}");
@@ -373,9 +373,11 @@ class LeadService
             foreach ($field['values'] as $value) {
                 $processedValue = $value['value'];
 
-                // Форматирование даты в YYYY-MM-DD формат
+                // Форматирование даты в YYYY-MM-DD формат с коррекцией на timezone AmoCRM UTC+10
                 if (in_array($field['field_type'], ['date', 'birthday']) && !empty($processedValue)) {
-                    $processedValue = date('Y-m-d', strtotime($processedValue));
+                    $timestamp = strtotime($processedValue);
+                    $timestamp += 10 * 3600; // корректировка +10 часов для совпадения с отображением в AmoCRM
+                    $processedValue = date('Y-m-d', $timestamp);
                 }
 
                 // Форматирование серии паспорта (4 цифры разделить по 2 пробелом)
