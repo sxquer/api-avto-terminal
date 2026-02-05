@@ -630,7 +630,7 @@ class AmoCRMController extends Controller
                     'vinNum' => 'TEST021',
                     'pdNum' => '10716050/051125/А000021',
                     'status' => 'регистрация ПТД',
-                    'statusDate' => '2025-11-05 08:45:00'
+                    'statusDate' => '2025-11-05 17:45:00'
                 ],
                 'expected' => [
                     'stage' => 'ptd/dt',
