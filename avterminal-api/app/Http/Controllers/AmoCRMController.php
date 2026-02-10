@@ -219,6 +219,57 @@ class AmoCRMController extends Controller
     }
 
     /**
+     * Обновить статус транзитного ДТ сделки
+     * 
+     * Принимает JSON:
+     * {
+     *   "vinNum": "LSGXC8356MV107322",
+     *   "tdNum": "10716050/151025/0А050168",
+     *   "status": "ТД Зарегистрирована",
+     *   "statusDate": "2025-10-15 16:27:11"
+     * }
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function updateTDStatus(Request $request)
+    {
+        try {
+            // Валидация входящих данных
+            $validated = $request->validate([
+                'vinNum' => 'required|string',
+                'tdNum' => 'required|string',
+                'status' => 'required|string',
+                'statusDate' => 'required|string',
+            ]);
+
+            // Получаем testMode из конфига (можно добавить в .env)
+            $testMode = config('amocrm.test_mode', false);
+
+            // Вызываем метод обработки
+            $result = $this->leadService->updateLeadFromTDStatus(
+                $validated['vinNum'],
+                $validated['tdNum'],
+                $validated['status'],
+                $validated['statusDate'],
+                $testMode
+            );
+
+            return response()->json(['message' => 'OK'], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'error' => 'Validation failed',
+                'details' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Запустить тестовый сценарий
      * 
      * @param int $testNumber Номер теста (1-10)
@@ -639,6 +690,202 @@ class AmoCRMController extends Controller
                     'note' => 'Проверка коррекции: 08:45 -10 -> 22:45 предыдущего дня (2025-11-04)'
                 ]
             ]
+        ];
+    }
+
+    /**
+     * Запустить тестовый сценарий для транзитных ДТ
+     * 
+     * @param int $testNumber Номер теста (22-28)
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function runTdStatusTest($testNumber)
+    {
+        $tests = $this->getTdStatusTests();
+        
+        if (!isset($tests[$testNumber])) {
+            return response()->json([
+                'error' => 'Тест не найден',
+                'available_tests' => array_keys($tests)
+            ], 404, ['Content-Type' => 'application/json; charset=utf-8'], JSON_UNESCAPED_UNICODE);
+        }
+        
+        $test = $tests[$testNumber];
+        
+        try {
+            $testMode = config('amocrm.test_mode', false);
+            
+            $result = $this->leadService->updateLeadFromTDStatus(
+                $test['data']['vinNum'],
+                $test['data']['tdNum'],
+                $test['data']['status'],
+                $test['data']['statusDate'],
+                $testMode
+            );
+            
+            return response()->json([
+                'test_number' => $testNumber,
+                'test_name' => $test['name'],
+                'description' => $test['description'],
+                'request_data' => $test['data'],
+                'expected_result' => $test['expected'],
+                'actual_result' => $result,
+                'status' => 'SUCCESS',
+                'message' => 'Тест выполнен успешно'
+            ], 200, ['Content-Type' => 'application/json; charset=utf-8'], JSON_UNESCAPED_UNICODE);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'test_number' => $testNumber,
+                'test_name' => $test['name'],
+                'description' => $test['description'],
+                'request_data' => $test['data'],
+                'expected_result' => $test['expected'],
+                'status' => 'FAILED',
+                'error' => $e->getMessage()
+            ], 500, ['Content-Type' => 'application/json; charset=utf-8'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    /**
+     * Получить список всех тестов TD
+     * 
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function listTdStatusTests()
+    {
+        $tests = $this->getTdStatusTests();
+        
+        $testList = [];
+        foreach ($tests as $number => $test) {
+            $testList[] = [
+                'number' => $number,
+                'name' => $test['name'],
+                'description' => $test['description'],
+                'url' => url("/api/test/{$number}")
+            ];
+        }
+        
+        return response()->json([
+            'total_tests' => count($testList),
+            'tests' => $testList
+        ], 200, ['Content-Type' => 'application/json; charset=utf-8'], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Получить определения всех тестов для транзитных ДТ
+     * 
+     * @return array
+     */
+    private function getTdStatusTests()
+    {
+        return [
+            22 => [
+                'name' => 'ТД Зарегистрирована - изменение статуса на Транзит',
+                'description' => 'Тест проверяет обработку статуса "ТД Зарегистрирована" когда сделка находится в одном из статусов td_statuses_to_change. Должны заполниться поля ТД и статус сделки должен измениться на "Транзит".',
+                'data' => [
+                    'vinNum' => 'TDTEST022',
+                    'tdNum' => '10716050/051125/TD000022',
+                    'status' => 'ТД Зарегистрирована',
+                    'statusDate' => '05.11.2025 14:00'
+                ],
+                'expected' => [
+                    'stage_changed' => true,
+                    'fields_updated' => ['nomer_td', 'status_td', 'registration_date_td'],
+                    'new_stage_id' => 83281430,
+                    'note' => 'Статус сделки должен измениться на td_transit_status (Транзит)'
+                ]
+            ],
+            23 => [
+                'name' => 'ТД Зарегистрирована - UPPERCASE обработка',
+                'description' => 'Тест проверяет регистронезависимую обработку статуса в верхнем регистре. Статус "ТД ЗАРЕГИСТРИРОВАНА" должен быть корректно распознан.',
+                'data' => [
+                    'vinNum' => 'TDTEST023',
+                    'tdNum' => '10716050/051125/TD000023',
+                    'status' => 'ТД ЗАРЕГИСТРИРОВАНА',
+                    'statusDate' => '05.11.2025 15:00'
+                ],
+                'expected' => [
+                    'fields_updated' => ['nomer_td', 'status_td', 'registration_date_td'],
+                    'status_recognition' => 'case_insensitive',
+                    'note' => 'Статус в UPPERCASE должен быть корректно обработан'
+                ]
+            ],
+            24 => [
+                'name' => 'ТД Зарегистрирована - lowercase обработка',
+                'description' => 'Тест проверяет регистронезависимую обработку статуса в нижнем регистре. Статус "тд зарегистрирована" должен быть корректно распознан.',
+                'data' => [
+                    'vinNum' => 'TDTEST024',
+                    'tdNum' => '10716050/051125/TD000024',
+                    'status' => 'тд зарегистрирована',
+                    'statusDate' => '05.11.2025 16:00'
+                ],
+                'expected' => [
+                    'fields_updated' => ['nomer_td', 'status_td', 'registration_date_td'],
+                    'status_recognition' => 'case_insensitive',
+                    'note' => 'Статус в lowercase должен быть корректно обработан'
+                ]
+            ],
+            25 => [
+                'name' => 'ТД - формат даты yyyy-mm-dd hh:mm:ss',
+                'description' => 'Тест проверяет корректную обработку ISO формата даты с секундами. Дата должна быть корректно распарсена и сохранена.',
+                'data' => [
+                    'vinNum' => 'TDTEST025',
+                    'tdNum' => '10716050/051125/TD000025',
+                    'status' => 'ТД Зарегистрирована',
+                    'statusDate' => '2025-11-05 17:30:45'
+                ],
+                'expected' => [
+                    'fields_updated' => ['nomer_td', 'status_td', 'registration_date_td'],
+                    'date_format' => 'yyyy-mm-dd hh:mm:ss',
+                    'note' => 'Дата в ISO формате с секундами должна корректно парситься'
+                ]
+            ],
+            26 => [
+                'name' => 'ТД - формат даты с точкой вместо двоеточия',
+                'description' => 'Тест проверяет альтернативный формат даты dd.mm.yyyy hh.mm (точка вместо двоеточия в времени). Должна быть корректная обработка.',
+                'data' => [
+                    'vinNum' => 'TDTEST026',
+                    'tdNum' => '10716050/051125/TD000026',
+                    'status' => 'ТД Зарегистрирована',
+                    'statusDate' => '05.11.2025 18.45'
+                ],
+                'expected' => [
+                    'fields_updated' => ['nomer_td', 'status_td', 'registration_date_td'],
+                    'date_format' => 'dd.mm.yyyy hh.mm',
+                    'note' => 'Альтернативный формат даты должен поддерживаться'
+                ]
+            ],
+            27 => [
+                'name' => 'ТД - коррекция времени UTC+10 (пограничное время 10:00)',
+                'description' => 'Тест проверяет коррекцию времени на -10 часов. Время 10:00 в UTC+10 должно стать 00:00 UTC без смены даты.',
+                'data' => [
+                    'vinNum' => 'TDTEST027',
+                    'tdNum' => '10716050/051125/TD000027',
+                    'status' => 'ТД Зарегистрирована',
+                    'statusDate' => '05.11.2025 10:00'
+                ],
+                'expected' => [
+                    'fields_updated' => ['nomer_td', 'status_td', 'registration_date_td'],
+                    'timezone_correction' => '-10 hours',
+                    'note' => 'Пограничное время 10:00: после -10 часов = 00:00, дата не меняется'
+                ]
+            ],
+            28 => [
+                'name' => 'ТД - неверный статус (проверка ошибки)',
+                'description' => 'Тест проверяет обработку ошибки при передаче неподдерживаемого статуса. Должна вернуться ошибка 500 с сообщением о неподдерживаемом статусе.',
+                'data' => [
+                    'vinNum' => 'TDTEST028',
+                    'tdNum' => '10716050/051125/TD000028',
+                    'status' => 'Неизвестный статус ТД',
+                    'statusDate' => '05.11.2025 19:00'
+                ],
+                'expected' => [
+                    'status' => 'FAILED',
+                    'error_message' => 'Статус \'Неизвестный статус ТД\' не поддерживается. Ожидается: \'ТД Зарегистрирована\'',
+                    'note' => 'Этот тест должен завершиться с ошибкой - это ожидаемое поведение'
+                ]
+            ],
         ];
     }
 }

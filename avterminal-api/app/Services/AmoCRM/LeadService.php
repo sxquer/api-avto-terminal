@@ -307,6 +307,141 @@ class LeadService
     }
 
     /**
+     * Обновить сделку на основе статуса транзитного ДТ
+     *
+     * @param string $vinNum VIN номер
+     * @param string $tdNum Номер транзитного ДТ
+     * @param string $status Текстовый статус (регистронезависимый)
+     * @param string $statusDate Дата статуса в формате "dd.mm.yyyy hh:mm" или "yyyy-mm-dd hh:mm:ss"
+     * @param bool $testMode Тестовый режим (всегда возвращает ID 25147637)
+     * @return array Результат операции
+     * @throws \Exception
+     */
+    public function updateLeadFromTDStatus(
+        string $vinNum,
+        string $tdNum,
+        string $status,
+        string $statusDate,
+        bool $testMode = false
+    ): array {
+        // 1. Получить сделку по VIN
+        if ($testMode) {
+            // В тестовом режиме работаем с фиксированной сделкой
+            $leadId = 25147637;
+            $lead = $this->amoCRMService->getClient()->leads()->getOne($leadId);
+        } else {
+            $lead = $this->findLeadByVin($vinNum);
+            if (!$lead) {
+                throw new \Exception("Сделка с VIN {$vinNum} не найдена");
+            }
+            $leadId = $lead->getId();
+        }
+
+        // 2. Проверить статус (регистронезависимо)
+        $expectedStatus = 'тд зарегистрирована';
+        $receivedStatusLower = mb_strtolower(trim($status), 'UTF-8');
+        
+        if ($receivedStatusLower !== $expectedStatus) {
+            throw new \Exception("Статус '{$status}' не поддерживается. Ожидается: 'ТД Зарегистрирована'");
+        }
+
+        // 3. Найти ID статуса в конфигурации (регистронезависимо)
+        $statusEnumId = null;
+        $statusFullText = null;
+        $statusConfig = config('amocrm.fields.status_td.values');
+        
+        if ($statusConfig) {
+            foreach ($statusConfig as $configText => $enumId) {
+                if (mb_strtolower($configText, 'UTF-8') === $expectedStatus) {
+                    $statusEnumId = $enumId;
+                    $statusFullText = $configText;
+                    break;
+                }
+            }
+        }
+
+        if (!$statusEnumId) {
+            throw new \Exception("Статус ТД не найден в конфигурации");
+        }
+
+        // 4. Конвертировать дату в timestamp
+        $dateTimestamp = $this->parseDateString($statusDate);
+
+        // 5. Получить текущий статус сделки
+        $currentStatusId = $lead->getStatusId();
+
+        // 6. Проверить, нужно ли менять статус сделки
+        $tdStatusesToChange = config('amocrm.td_statuses_to_change', []);
+        $shouldChangeStatus = in_array($currentStatusId, $tdStatusesToChange);
+        $stageChanged = false;
+
+        // 7. Логирование начала обработки
+        Log::info("TD status update: начало обработки", [
+            'lead_id' => $leadId,
+            'vin' => $vinNum,
+            'td_num' => $tdNum,
+            'status' => $statusFullText,
+            'status_date' => $statusDate,
+            'current_stage_id' => $currentStatusId,
+            'should_change_status' => $shouldChangeStatus
+        ]);
+
+        // 8. Подготовить поля для обновления
+        $fieldsToUpdate = [
+            ['field_key' => 'nomer_td', 'value' => $tdNum, 'type' => 'text'],
+            ['field_key' => 'status_td', 'value' => $statusFullText, 'type' => 'select'],
+            ['field_key' => 'registration_date_td', 'value' => $dateTimestamp, 'type' => 'datetime'],
+        ];
+
+        // 9. Обновить кастомные поля (без переноса в историю)
+        app(CustomFieldService::class)->updateLeadCustomFields(
+            $leadId,
+            $fieldsToUpdate,
+            false // Для ТД истории нет
+        );
+
+        Log::info("TD status update: поля обновлены", [
+            'lead_id' => $leadId,
+            'fields_updated' => ['nomer_td', 'status_td', 'registration_date_td']
+        ]);
+
+        // 10. Изменить статус сделки, если требуется
+        if ($shouldChangeStatus) {
+            $tdTransitStatusId = config('amocrm.td_transit_status');
+            
+            if ($tdTransitStatusId) {
+                $apiClient = $this->amoCRMService->getClient();
+                $leadModel = (new LeadModel())
+                    ->setId($leadId)
+                    ->setStatusId($tdTransitStatusId);
+                
+                $apiClient->leads()->updateOne($leadModel);
+                $stageChanged = true;
+
+                Log::info("TD status update: статус сделки изменен", [
+                    'lead_id' => $leadId,
+                    'old_status_id' => $currentStatusId,
+                    'new_status_id' => $tdTransitStatusId
+                ]);
+            }
+        } else {
+            Log::info("TD status update: статус сделки НЕ изменен (не в списке td_statuses_to_change)", [
+                'lead_id' => $leadId,
+                'current_status_id' => $currentStatusId
+            ]);
+        }
+
+        // 11. Возврат результата
+        return [
+            'lead_id' => $leadId,
+            'status' => 'OK',
+            'stage_changed' => $stageChanged,
+            'current_stage_id' => $currentStatusId,
+            'new_stage_id' => $stageChanged ? config('amocrm.td_transit_status') : null,
+        ];
+    }
+
+    /**
      * Парсинг строки даты в timestamp
      * Поддерживает форматы: "dd.mm.yyyy hh:mm", "dd.mm.yyyy hh.mm" и "yyyy-mm-dd hh:mm:ss"
      *

@@ -17,7 +17,9 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 Route::get('/test/list', [AmoCRMController::class, 'listDtStatusTests']);
-Route::get('/test/{number}', [AmoCRMController::class, 'runDtStatusTest']);
+Route::get('/test/td/list', [AmoCRMController::class, 'listTdStatusTests']);
+Route::get('/test/{number}', [AmoCRMController::class, 'runDtStatusTest'])->where('number', '[1-9]|1[0-9]|2[0-1]');
+Route::get('/test/td/{number}', [AmoCRMController::class, 'runTdStatusTest'])->where('number', '2[2-8]');
 Route::get('/test', [AmoCRMController::class, 'testFindByVin']);
 Route::get('/amocrm/info', [AmoCRMController::class, 'info']);
 
@@ -28,6 +30,7 @@ Route::middleware('auth:sanctum')->prefix('amocrm')->group(function () {
     Route::get('/lead/{id}/formatted', [AmoCRMController::class, 'getFormattedLeadAndContactData']);
     Route::get('/lead/{id}/xml', [AmoCRMController::class, 'generateXmlByLeadId']);
     Route::post('/dt-status', [AmoCRMController::class, 'updateDtStatus']);
+    Route::post('/td-status', [AmoCRMController::class, 'updateTDStatus']);
     
 });
 
