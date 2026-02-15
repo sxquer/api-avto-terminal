@@ -79,6 +79,9 @@ class LeadService
         $filter->setCustomFieldsValues([
             808681 => $vin
         ]);
+        $filter->setPipelineIds([
+            7523034
+        ]);
 
         $leads = $apiClient->leads()->get($filter);
 
