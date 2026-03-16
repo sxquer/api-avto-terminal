@@ -25,6 +25,8 @@ Route::get('/test/td/{number}', [AmoCRMController::class, 'runTdStatusTest'])->w
 Route::get('/test', [AmoCRMController::class, 'testFindByVin']);
 Route::get('/amocrm/info', [AmoCRMController::class, 'info'])->middleware('log.amo.requests');
 Route::get('/amocrm/logs', [AmoRequestLogController::class, 'index']);
+Route::post('/amocrm/deals/contract-ready', [OneCIntegrationController::class, 'contractReady'])
+    ->middleware('log.amo.requests');
 
 Route::middleware(['log.amo.requests', 'auth:sanctum'])->prefix('amocrm')->group(function () {
     
@@ -36,7 +38,6 @@ Route::middleware(['log.amo.requests', 'auth:sanctum'])->prefix('amocrm')->group
     Route::post('/td-status', [AmoCRMController::class, 'updateTDStatus']);
 
     // 1C integration, flow A (counterparties)
-    Route::post('/deals/contract-ready', [OneCIntegrationController::class, 'contractReady']);
     Route::get('/integrations/1c/contacts/pending', [OneCIntegrationController::class, 'pendingContacts']);
     Route::post('/integrations/1c/contacts/result', [OneCIntegrationController::class, 'contactsResult']);
     

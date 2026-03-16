@@ -21,6 +21,10 @@ class OneCIntegrationController extends Controller
     public function contractReady(Request $request): JsonResponse
     {
         try {
+            if ($authError = $this->authorizeAmoWebhook($request)) {
+                return $authError;
+            }
+
             $payload = $this->resolveIncomingPayload($request);
             $context = $this->extractContractReadyContext($payload);
 
@@ -51,6 +55,33 @@ class OneCIntegrationController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    private function authorizeAmoWebhook(Request $request): ?JsonResponse
+    {
+        $expectedSecret = trim((string) config('amocrm.onec.webhook_secret', ''));
+
+        if ($expectedSecret === '') {
+            return response()->json([
+                'error' => 'Webhook secret is not configured',
+            ], 500);
+        }
+
+        $providedSecret = trim((string) (
+            $request->input('secret')
+            ?? $request->query('secret')
+            ?? $request->header('X-Amo-Webhook-Secret')
+            ?? $request->header('X-Webhook-Secret')
+            ?? ''
+        ));
+
+        if ($providedSecret === '' || !hash_equals($expectedSecret, $providedSecret)) {
+            return response()->json([
+                'error' => 'Invalid webhook secret',
+            ], 403);
+        }
+
+        return null;
     }
 
     /**
