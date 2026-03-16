@@ -98,6 +98,11 @@ class LogAmoRequestMiddleware
                 continue;
             }
 
+            if (is_string($value)) {
+                $result[$key] = $this->sanitizeInlineString($value);
+                continue;
+            }
+
             $result[$key] = $value;
         }
 
@@ -127,6 +132,16 @@ class LogAmoRequestMiddleware
         }
 
         return $rawBody;
+    }
+
+    private function sanitizeInlineString(string $value): string
+    {
+        // Маскируем секреты в query-параметрах, даже если они вложены в другие поля (например, target URL).
+        return preg_replace_callback(
+            '/([?&])(secret|token|authorization|api_key|apikey|password|pass)=([^&#]*)/iu',
+            fn (array $m) => $m[1] . $m[2] . '=' . self::REDACTED,
+            $value
+        ) ?? $value;
     }
 
     private function isSensitiveKey(string $key): bool
