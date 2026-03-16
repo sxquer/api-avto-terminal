@@ -118,13 +118,18 @@ class LogAmoRequestMiddleware
         $patterns = [
             '/(?<=^|[&?])(secret|token|authorization|api_key|apikey|password|pass)=([^&]*)/iu',
             '/"(secret|token|authorization|api_key|apikey|password|pass)"\s*:\s*"([^"]*)"/iu',
+            '/(secret%3D)([^&]*)/iu',
+            '/(token%3D)([^&]*)/iu',
         ];
 
         foreach ($patterns as $pattern) {
             $rawBody = preg_replace_callback($pattern, function (array $m) {
                 $key = $m[1] ?? 'secret';
-                if (str_starts_with($m[0], '"')) {
+                if (str_starts_with((string) $m[0], '"')) {
                     return '"' . $key . '":"' . self::REDACTED . '"';
+                }
+                if (str_ends_with((string) $key, '%3D')) {
+                    return $key . self::REDACTED;
                 }
 
                 return $key . '=' . self::REDACTED;
