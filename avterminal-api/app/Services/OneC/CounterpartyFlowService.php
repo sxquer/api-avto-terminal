@@ -27,16 +27,31 @@ class CounterpartyFlowService
         $payload = $this->buildPayloadFromLead($leadId);
         $payloadHash = hash('sha256', json_encode($payload, JSON_UNESCAPED_UNICODE));
 
-        $existing = OneCCounterpartyBuffer::query()
+        // Схлопываем повторные события по одному lead, пока запись не обработана 1С.
+        $active = OneCCounterpartyBuffer::query()
             ->where('lead_id', $leadId)
-            ->where('payload_hash', $payloadHash)
-            ->whereIn('status', ['pending', 'pulled', 'processed'])
+            ->whereIn('status', ['pending', 'pulled'])
             ->latest('id')
             ->first();
 
-        if ($existing) {
+        if ($active) {
             return [
-                'requestId' => $existing->request_id,
+                'requestId' => $active->request_id,
+                'status' => 'already_buffered',
+            ];
+        }
+
+        // Если ранее такой же payload уже успешно обработан, повторно не ставим в буфер.
+        $existingProcessed = OneCCounterpartyBuffer::query()
+            ->where('lead_id', $leadId)
+            ->where('payload_hash', $payloadHash)
+            ->where('status', 'processed')
+            ->latest('id')
+            ->first();
+
+        if ($existingProcessed) {
+            return [
+                'requestId' => $existingProcessed->request_id,
                 'status' => 'already_buffered',
             ];
         }
@@ -51,7 +66,7 @@ class CounterpartyFlowService
             'company_id' => $payload['_meta']['companyId'] ?? null,
             'client_type' => $payload['clientType'],
             'vin' => $payload['vin'] ?? null,
-            'payload_hash' => hash('sha256', json_encode($payload, JSON_UNESCAPED_UNICODE)),
+            'payload_hash' => $payloadHash,
             'payload_json' => json_encode($payload, JSON_UNESCAPED_UNICODE),
             'status' => 'pending',
         ]);
