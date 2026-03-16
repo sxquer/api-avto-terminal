@@ -10,6 +10,16 @@ class LogAmoRequestMiddleware
 {
     private const LOG_FILE = 'amo_requests.log';
     private const MAX_RAW_BODY_LENGTH = 20000;
+    private const REDACTED = '***redacted***';
+    private const SENSITIVE_KEYS = [
+        'secret',
+        'token',
+        'authorization',
+        'api_key',
+        'apikey',
+        'password',
+        'pass',
+    ];
 
     public function handle(Request $request, Closure $next): Response
     {
@@ -47,17 +57,21 @@ class LogAmoRequestMiddleware
             }
         }
 
+        $sanitizedQuery = $this->sanitizeArray($request->query());
+        $sanitizedPayload = $this->sanitizeArray($payload);
+        $sanitizedRawBody = $this->sanitizeRawBody(mb_substr($rawBody, 0, self::MAX_RAW_BODY_LENGTH));
+
         $record = [
             'at' => now()->toIso8601String(),
             'method' => $request->method(),
-            'url' => $request->fullUrl(),
+            'url' => $request->url(),
             'path' => $request->path(),
             'ip' => $request->ip(),
             'content_type' => $request->header('Content-Type'),
             'user_agent' => $request->userAgent(),
-            'query' => $request->query(),
-            'payload' => $payload,
-            'raw_body' => mb_substr($rawBody, 0, self::MAX_RAW_BODY_LENGTH),
+            'query' => $sanitizedQuery,
+            'payload' => $sanitizedPayload,
+            'raw_body' => $sanitizedRawBody,
             'has_authorization_header' => $request->headers->has('Authorization'),
             'response_status' => $response?->getStatusCode(),
             'duration_ms' => round((microtime(true) - $start) * 1000, 2),
@@ -68,5 +82,62 @@ class LogAmoRequestMiddleware
             storage_path('logs/' . self::LOG_FILE),
             json_encode($record, JSON_UNESCAPED_UNICODE) . PHP_EOL
         );
+    }
+
+    private function sanitizeArray(array $data): array
+    {
+        $result = [];
+        foreach ($data as $key => $value) {
+            if (is_string($key) && $this->isSensitiveKey($key)) {
+                $result[$key] = self::REDACTED;
+                continue;
+            }
+
+            if (is_array($value)) {
+                $result[$key] = $this->sanitizeArray($value);
+                continue;
+            }
+
+            $result[$key] = $value;
+        }
+
+        return $result;
+    }
+
+    private function sanitizeRawBody(string $rawBody): string
+    {
+        if ($rawBody === '') {
+            return '';
+        }
+
+        $patterns = [
+            '/(?<=^|[&?])(secret|token|authorization|api_key|apikey|password|pass)=([^&]*)/iu',
+            '/"(secret|token|authorization|api_key|apikey|password|pass)"\s*:\s*"([^"]*)"/iu',
+        ];
+
+        foreach ($patterns as $pattern) {
+            $rawBody = preg_replace_callback($pattern, function (array $m) {
+                $key = $m[1] ?? 'secret';
+                if (str_starts_with($m[0], '"')) {
+                    return '"' . $key . '":"' . self::REDACTED . '"';
+                }
+
+                return $key . '=' . self::REDACTED;
+            }, $rawBody) ?? $rawBody;
+        }
+
+        return $rawBody;
+    }
+
+    private function isSensitiveKey(string $key): bool
+    {
+        $key = mb_strtolower($key);
+        foreach (self::SENSITIVE_KEYS as $sensitiveKey) {
+            if (str_contains($key, $sensitiveKey)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
