@@ -73,6 +73,10 @@ return [
             'id' => 984687
         ],
 
+        'onec_counterparty_id' => [
+            'id' => 986431
+        ],
+
     ],
 
     // Статусы из которых при полученнии ДТ переходим в статус Транзит (83281430)
@@ -88,5 +92,10 @@ return [
         'ptd/dt' => 62360974,
         'vipusk' => 81192786,
         'svh' => 64976646
+    ],
+
+    'onec' => [
+        'contract_pipeline_id' => env('ONEC_CONTRACT_PIPELINE_ID', 7523034),
+        'contract_status_id' => env('ONEC_CONTRACT_STATUS_ID', 62360726),
     ],
 ];
