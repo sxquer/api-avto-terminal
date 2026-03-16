@@ -35,6 +35,12 @@ class CounterpartyFlowService
             ->first();
 
         if ($active) {
+            $this->addLeadComment($leadId, sprintf(
+                "[1C] Запрос уже в буфере. requestId=%s, status=%s",
+                $active->request_id,
+                $active->status
+            ));
+
             return [
                 'requestId' => $active->request_id,
                 'status' => 'already_buffered',
@@ -50,6 +56,12 @@ class CounterpartyFlowService
             ->first();
 
         if ($existingProcessed) {
+            $this->addLeadComment($leadId, sprintf(
+                "[1C] Повторный запрос: идентичные данные уже обработаны. requestId=%s, status=%s",
+                $existingProcessed->request_id,
+                $existingProcessed->status
+            ));
+
             return [
                 'requestId' => $existingProcessed->request_id,
                 'status' => 'already_buffered',

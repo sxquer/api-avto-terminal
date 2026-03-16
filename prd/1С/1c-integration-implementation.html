@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Интеграция amoCRM ↔ 1С: фактическая реализация</title>
+  <style>
+    :root { color-scheme: light; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; margin: 32px auto; max-width: 1100px; line-height: 1.45; color: #111; padding: 0 18px; }
+    h1, h2, h3 { line-height: 1.2; }
+    h1 { font-size: 28px; margin: 0 0 8px; }
+    h2 { font-size: 22px; margin-top: 28px; }
+    h3 { font-size: 18px; margin-top: 20px; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+    pre { background: #f6f8fa; padding: 12px; border-radius: 8px; overflow-x: auto; }
+    .muted { color: #555; }
+    .note { background: #fff8e1; border: 1px solid #f0d88a; border-radius: 8px; padding: 12px; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #f3f4f6; }
+    ul { margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Интеграция amoCRM ↔ 1С: фактическая реализация</h1>
+  <p class="muted">Документ для программиста 1С. Описывает API-контракт, поведение методов и отклонения от исходного ТЗ.</p>
+
+  <h2>0. Базовый URL</h2>
+  <p><code>http://api-avto-terminal.ru</code></p>
+  <p>Все URL ниже указаны относительно этого домена.</p>
+
+  <h2>1. Общая схема</h2>
+  <p>Реализован flow <b>“контрагенты для 1С”</b> в формате <b>буфер + pull + callback</b>:</p>
+  <ol>
+    <li>Источник события вызывает endpoint <code>/api/amocrm/deals/contract-ready</code>.</li>
+    <li>API формирует payload контрагента и кладет запись в буфер SQLite.</li>
+    <li>1С забирает буфер через <code>GET /api/amocrm/integrations/1c/contacts/pending</code>.</li>
+    <li>После обработки 1С отправляет результат через <code>POST /api/amocrm/integrations/1c/contacts/result</code>.</li>
+  </ol>
+
+  <h2>2. Endpoint’ы и авторизация</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Метод</th>
+        <th>URL</th>
+        <th>Кто вызывает</th>
+        <th>Авторизация</th>
+        <th>Назначение</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>POST</td>
+        <td><code>http://api-avto-terminal.ru/api/amocrm/deals/contract-ready?secret=...</code></td>
+        <td>источник события</td>
+        <td>секрет в query/header</td>
+        <td>Поставить контрагента в буфер на отдачу в 1С</td>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td><code>http://api-avto-terminal.ru/api/amocrm/integrations/1c/contacts/pending?limit=50</code></td>
+        <td>1С</td>
+        <td>Bearer (Sanctum)</td>
+        <td>Забрать pending-контрагентов</td>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td><code>http://api-avto-terminal.ru/api/amocrm/integrations/1c/contacts/result</code></td>
+        <td>1С</td>
+        <td>Bearer (Sanctum)</td>
+        <td>Передать результат обработки в 1С</td>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td><code>http://api-avto-terminal.ru/api/amocrm/logs</code></td>
+        <td>оператор/разработчик</td>
+        <td>без авторизации</td>
+        <td>Просмотр лога входящих запросов</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>Секрет webhook задается в <code>.env</code>:</p>
+  <pre>ONEC_AMO_WEBHOOK_SECRET=...</pre>
+  <p>Допустимые способы передачи секрета в webhook:</p>
+  <ul>
+    <li>query-параметр <code>?secret=...</code></li>
+    <li>header <code>X-Amo-Webhook-Secret</code> или <code>X-Webhook-Secret</code></li>
+  </ul>
+
+  <h2>3. Источники запуска постановки в буфер</h2>
+  <p>На текущий момент поддержано два источника запуска <code>contract-ready</code>:</p>
+  <ul>
+    <li>автоматический триггер;</li>
+    <li>ручной триггер.</li>
+  </ul>
+  <p>Оба источника приводят к одинаковому результату на стороне API: постановка (или схлопывание) записи в буфере.</p>
+
+  <h2>4. Логика постановки в буфер (важно)</h2>
+  <ul>
+    <li>Если по этому же <code>lead_id</code> уже есть активная запись в статусе <code>pending</code> или <code>pulled</code>, новая запись <b>не создается</b> (схлопывание дублей).</li>
+    <li>Если payload уже был обработан ранее (<code>processed</code>) и совпал по хешу, новая запись тоже не создается.</li>
+    <li>В лид пишутся сервисные комментарии:
+      <ul>
+        <li>постановка в буфер;</li>
+        <li>повторный запрос (already buffered/already processed);</li>
+        <li>итог callback от 1С.</li>
+      </ul>
+    </li>
+  </ul>
+
+  <h2>5. Формат, который 1С получает в pending</h2>
+  <p>Пример payload одного элемента <code>items[]</code>:</p>
+  <pre>{
+  "vin": "TEST020",
+  "dealId": 25147637,
+  "clientType": "legal | individual",
+  "clientTypeRaw": "Юр. лицо | Физ. лицо",
+  "client": {
+    "...": "набор полей зависит от clientType"
+  },
+  "deal": {
+    "dealNumber": "25147637"
+  },
+  "_meta": {
+    "contactId": 29639483,
+    "companyId": 29639633
+  },
+  "requestId": "req_xxxxxxxxxxxx"
+}</pre>
+
+  <h3>5.1 Для физлица (<code>clientType=individual</code>)</h3>
+  <ul>
+    <li><code>fullName</code>, <code>phone</code></li>
+    <li><code>passportSeries</code>, <code>passportNumber</code>, <code>passportIssuedBy</code>, <code>passportIssueDate</code>, <code>passportDepartmentCode</code></li>
+    <li><code>registrationAddress</code>, <code>inn</code>, <code>snils</code></li>
+  </ul>
+
+  <h3>5.2 Для юрлица (<code>clientType=legal</code>)</h3>
+  <ul>
+    <li><code>name</code>, <code>phone</code></li>
+    <li><code>inn</code>, <code>kpp</code></li>
+    <li><code>legalAddress</code></li>
+    <li><code>rs</code>, <code>bik</code></li>
+  </ul>
+
+  <h2>6. Формат callback от 1С</h2>
+  <p><code>POST /api/amocrm/integrations/1c/contacts/result</code></p>
+  <pre>{
+  "requestId": "req_xxxxxxxxxxxx",
+  "status": "created | found | error",
+  "1cId": "optional for created/found",
+  "vin": "optional",
+  "processedAt": "ISO datetime",
+  "error": "text for error"
+}</pre>
+
+  <p>Эффект callback:</p>
+  <ul>
+    <li>буферная запись получает статус <code>processed</code> (или <code>error</code>);</li>
+    <li>при <code>created/found</code> и наличии <code>1cId</code> обновляется поле лида <code>986431</code>;</li>
+    <li>в лид добавляется комментарий о результате синхронизации.</li>
+  </ul>
+
+  <h2>7. Отклонения от исходного ТЗ (фактическое состояние)</h2>
+  <ol>
+    <li><b>Статус/дата/ошибка синхронизации</b> пишутся в комментарии лида, а не в отдельные custom fields.</li>
+    <li><b>Поле ID контрагента 1С</b> реализовано в лиде (<code>986431</code>) — соответствует согласованному решению.</li>
+    <li><b>Номер договора</b> в текущем контракте не передается (поле исключено по согласованию).</li>
+    <li><b>Хеш payload</b> хранится на сервере в SQLite.</li>
+    <li><b>Интеграция с 1С реализована pull-моделью</b> (<code>pending</code> + <code>result</code>), не прямым push в 1С.</li>
+    <li><b>Логи входящих запросов</b> доступны через открытый endpoint <code>/api/amocrm/logs</code> (для отладки).</li>
+  </ol>
+
+  <h2>8. Важные наблюдения с тестов</h2>
+  <ul>
+    <li>Подтверждено, что оба метода запуска реально приходят и обрабатываются.</li>
+    <li>Ранее были дубли при “этап + кнопка”, это исправлено схлопыванием активной записи по <code>lead_id</code>.</li>
+    <li>В тестах по юрлицу встречался кейс, когда в payload <code>companyId=null</code> и реквизиты юрлица пустые. Это означает, что у сделки не всегда поднимается связанная компания через API-отношение; нужно учитывать на стороне 1С обработку неполных данных.</li>
+  </ul>
+
+  <h2>9. Рекомендации для 1С-разработчика</h2>
+  <ul>
+    <li>Обрабатывать <code>requestId</code> как идемпотентный ключ операции.</li>
+    <li>Принимать неполные payload (часть полей может быть <code>null</code> / пустой строкой).</li>
+    <li>После обработки обязательно отправлять <code>result</code>, иначе запись останется в <code>pulled</code>.</li>
+    <li>Разделять логику на <code>created</code> (создан новый контрагент), <code>found</code> (найден существующий), <code>error</code> (ошибка).</li>
+  </ul>
+
+  <div class="note">
+    <b>Примечание по безопасности:</b> в отладочных логах сейчас может отображаться secret из query-параметра. Для продакшена желательно маскировать/не логировать secret.
+  </div>
+</body>
+</html>
