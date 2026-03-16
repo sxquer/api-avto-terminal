@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ТЗ v2: интеграция amoCRM и 1С</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #4b5563;
+      --accent: #0f766e;
+      --border: #dbe2ea;
+      --danger: #b91c1c;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    h1, h2, h3 {
+      margin: 0 0 12px;
+      line-height: 1.25;
+    }
+
+    h1 { font-size: 28px; }
+    h2 { font-size: 22px; color: var(--accent); }
+    h3 { font-size: 18px; }
+
+    p { margin: 8px 0; }
+    ul, ol { margin: 8px 0 8px 22px; }
+    li { margin: 4px 0; }
+
+    .meta {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+    }
+
+    .warn {
+      border-left: 4px solid var(--danger);
+      padding-left: 10px;
+      color: var(--danger);
+      margin: 8px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+      font-size: 14px;
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f8fafc;
+    }
+
+    figure {
+      margin: 12px 0;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      background: #fcfdff;
+    }
+
+    figure img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+      border-radius: 6px;
+    }
+
+    figcaption {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .result {
+      background: #f0fdfa;
+      border: 1px solid #99f6e4;
+      border-radius: 8px;
+      padding: 10px;
+      margin-top: 10px;
+    }
+
+    code {
+      background: #eef2ff;
+      padding: 1px 6px;
+      border-radius: 5px;
+      font-size: 0.95em;
+    }
+
+    pre {
+      background: #0b1020;
+      color: #d1d5db;
+      border-radius: 8px;
+      padding: 12px;
+      overflow: auto;
+      margin: 10px 0;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <section class="card">
+      <h1>Техническое задание v2: интеграция amoCRM и 1С</h1>
+      <div class="meta">
+        <div><strong>Версия:</strong> v2 (структурированная редакция)</div>
+        <div><strong>Дата:</strong> 05.03.2026</div>
+        <div><strong>Основание:</strong> <code>tz.html</code> (очищено от отменённых задач)</div>
+        <div><span class="badge">К реализации</span></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>1. Цель и бизнес-результат</h2>
+      <p>Автоматизировать обмен между amoCRM и 1С в двух рабочих потоках:</p>
+      <ol>
+        <li>amoCRM → 1С: создание/поиск контрагента по данным сделки и клиента.</li>
+        <li>1С → amoCRM: передача статусов оплаты счетов и автоматический перевод сделки в этап <strong>«Оплачено»</strong> после полной оплаты.</li>
+      </ol>
+      <p><strong>Итог для бизнеса:</strong> снижение ручного ввода, исключение дублей контрагентов, прозрачный контроль оплаты по сделке в amoCRM.</p>
+    </section>
+
+    <section class="card">
+      <h2>2. Границы работ (Scope)</h2>
+      <h3>2.1. Включено в v2</h3>
+      <ul>
+        <li>Поток A: передача данных из amoCRM в 1С для контрагента через накопление данных на нашей стороне и забор 1С по расписанию.</li>
+        <li>Поток B: обратная передача факта оплаты из 1С в amoCRM.</li>
+        <li>Хранение в amoCRM идентификатора контрагента из 1С для повторных обращений.</li>
+      </ul>
+
+      <h3>2.2. Исключено из v2 (отменено в исходном ТЗ)</h3>
+      <ul>
+        <li>Поток amoCRM → 1С на создание счетов/услуг (полностью исключён).</li>
+        <li>Вся детализация по разнесению услуг на организации в рамках отменённого потока.</li>
+      </ul>
+
+      <h3>2.3. Принципы ответственности сторон</h3>
+      <ul>
+        <li>Наша сторона передаёт данные из amoCRM в согласованной структуре «как есть», без бизнес-логики разруливания контактов/компаний.</li>
+        <li>Вся логика обработки, маршрутизации и принятия решений по контактам/компаниям реализуется на стороне 1С.</li>
+        <li>Передача оплат из 1С в amoCRM реализуется в реальном времени через входящий хук на нашей стороне.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>3. Интеграционный сценарий верхнего уровня</h2>
+      <ol>
+        <li>Менеджер в amoCRM переводит заполненную сделку в стадию <strong>«Договор»</strong>.</li>
+        <li>Наша интеграция формирует пакет данных и сохраняет его в буфере на сервере для последующего забора 1С.</li>
+        <li>1С забирает накопленные данные по своему расписанию (ориентир: раз в 1-5 минут).</li>
+        <li>1С обрабатывает клиента (создаёт/находит контрагента по своей логике) и отправляет результат обработки на отдельный callback-адрес.</li>
+        <li>amoCRM сохраняет идентификатор контрагента, полученный в callback.</li>
+        <li>При оплате счетов 1С в реальном времени отправляет событие на наш хук.</li>
+        <li>amoCRM сверяет статус оплаты по сделке; при полной оплате переводит сделку в <strong>«Оплачено»</strong>.</li>
+      </ol>
+
+      <figure>
+        <img src="tz.fld/image002.jpg" alt="Схема этапа Договор и запуска интеграции">
+        <figcaption>Иллюстрация триггера запуска интеграции из исходного ТЗ.</figcaption>
+      </figure>
+    </section>
+
+    <section class="card">
+      <h2>4. Этап 0. Согласование технического контракта обмена</h2>
+      <p>До запуска разработки фиксируется единый контракт обмена между командами amoCRM и 1С.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Что согласуем</th>
+            <th>Минимальный результат</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Формат сообщений</td>
+            <td><code>JSON</code> со схемой полей и типами данных</td>
+          </tr>
+          <tr>
+            <td>Транспорт</td>
+            <td>Поток A: буфер на нашей стороне + pull со стороны 1С по расписанию; Поток B: push из 1С на наш webhook в реальном времени</td>
+          </tr>
+          <tr>
+            <td>Периодичность забора 1С</td>
+            <td>Конфигурируемый интервал на стороне 1С, целевой диапазон 1-5 минут</td>
+          </tr>
+          <tr>
+            <td>Адреса интеграции</td>
+            <td>Отдельный endpoint для забора данных 1С и отдельный callback endpoint для ответа по обработанному клиенту</td>
+          </tr>
+          <tr>
+            <td>Ошибки и повтор</td>
+            <td>Список кодов ошибок, правила повторной отправки, журнал ошибок</td>
+          </tr>
+          <tr>
+            <td>Ответственные</td>
+            <td>Назначены ответственные со стороны amoCRM, 1С и инфраструктуры</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="result"><strong>Результат этапа:</strong> подписанный технический контракт обмена, достаточный для начала реализации.</div>
+    </section>
+
+    <section class="card">
+      <h2>5. Этап 1. Поток A (amoCRM → 1С): контрагент</h2>
+
+      <h3>5.1. Триггер</h3>
+      <p>Сделка в amoCRM переведена в стадию <strong>«Договор»</strong> и содержит обязательные поля.</p>
+
+      <h3>5.1.1. Механика передачи</h3>
+      <ul>
+        <li>Пакет не отправляется «в моменте» напрямую в 1С.</li>
+        <li>Пакет сохраняется в очереди/буфере на нашем сервере.</li>
+        <li>1С сама забирает накопленные пакеты по расписанию (раз в 1-5 минут).</li>
+      </ul>
+
+      <h3>5.2. Данные к передаче из amoCRM</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Источник</th>
+            <th>Поля</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Карточка сделки</td>
+            <td>Номер сделки, VIN, вид клиента, ФИО клиента (для физ. лица), при наличии номер договора</td>
+          </tr>
+          <tr>
+            <td>Карточка клиента</td>
+            <td>ФИО, мобильный, паспортные данные (серия/номер/кем выдан/дата выдачи), код подразделения, место регистрации, ИНН, СНИЛС</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <figure>
+        <img src="tz.fld/image004.jpg" alt="Поля в карточке сделки">
+        <figcaption>Поля в карточке сделки (исходный скрин).</figcaption>
+      </figure>
+      <figure>
+        <img src="tz.fld/image006.jpg" alt="Поля в карточке клиента">
+        <figcaption>Поля в карточке клиента (исходный скрин).</figcaption>
+      </figure>
+
+      <h3>5.3. Правила обработки в 1С</h3>
+      <ul>
+        <li>Наша сторона не выполняет логику распределения контактов/компаний и не принимает решений по созданию сущностей.</li>
+        <li>Признак клиента (физ./юр. лицо) определяет вид контрагента в 1С.</li>
+        <li>ИНН используется для проверки на дубль. Если контрагент уже существует, новый не создаётся.</li>
+        <li>VIN должен быть доступен в 1С в сущности счёта для дальнейшей сверки оплат в потоке B.</li>
+      </ul>
+
+      <figure>
+        <img src="tz.fld/image010.jpg" alt="Пример логики выбора вида контрагента">
+        <figcaption>Логика определения типа контрагента.</figcaption>
+      </figure>
+      <figure>
+        <img src="tz.fld/image012.jpg" alt="Проверка контрагента по ИНН">
+        <figcaption>Проверка/поиск контрагента по ИНН.</figcaption>
+      </figure>
+      <figure>
+        <img src="tz.fld/image014.jpg" alt="Соответствие полей amoCRM и 1С">
+        <figcaption>Соотношение полей amoCRM и 1С (исходный материал).</figcaption>
+      </figure>
+
+      <h3>5.4. Ответ 1С в amoCRM</h3>
+      <p>1С отправляет результат обработки конкретного клиента на отдельный callback endpoint. В ответе передаются:</p>
+      <ul>
+        <li><code>counterpartyId</code> (ID созданного или найденного контрагента),</li>
+        <li>статус обработки (<code>created</code>/<code>found</code>/<code>error</code>),</li>
+        <li>идентификатор исходного пакета/клиента для однозначного сопоставления,</li>
+        <li>текст ошибки (если есть).</li>
+      </ul>
+      <p>amoCRM сохраняет <code>counterpartyId</code> в системном поле сделки/клиента для повторных операций после получения callback.</p>
+
+      <figure>
+        <img src="tz.fld/image008.jpg" alt="Комментарий по полю номера договора">
+        <figcaption>Контрольный скрин по полю «номер договора» (если поле требуется для передачи, его нужно зафиксировать в модели данных).</figcaption>
+      </figure>
+
+      <div class="result">
+        <strong>Результат этапа:</strong> данные стабильно накапливаются на нашей стороне и забираются 1С по расписанию; после фактической обработки 1С возвращает callback по каждому клиенту; ID контрагента сохранён в amoCRM; ручное создание контрагента исключено.
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>6. Этап 2. Поток B (1С → amoCRM): статусы оплаты</h2>
+
+      <h3>6.1. Входные условия</h3>
+      <ul>
+        <li>В 1С есть счета, относящиеся к сделке amoCRM.</li>
+        <li>Есть устойчивый ключ сопоставления (VIN).</li>
+      </ul>
+
+      <h3>6.2. Передаваемые данные из 1С (минимум)</h3>
+      <ul>
+        <li>ID счёта в 1С,</li>
+        <li>VIN,</li>
+        <li>идентификатор/наименование услуги,</li>
+        <li>сумма счёта и сумма оплаты,</li>
+        <li>статус оплаты и дата оплаты.</li>
+      </ul>
+
+      <h3>6.3. Логика в amoCRM</h3>
+      <ol>
+        <li>Получить событие об оплате из 1С в реальном времени через входящий webhook.</li>
+        <li>Сопоставить платёж со сделкой по VIN.</li>
+        <li>Обновить статус оплаты в карточке сделки.</li>
+        <li>Если все обязательные счета по сделке оплачены, автоматически перевести сделку в стадию <strong>«Оплачено»</strong>.</li>
+      </ol>
+
+      <figure>
+        <img src="tz.fld/image026.jpg" alt="Список услуг и проверка оплат">
+        <figcaption>Основа сверки оплат по списку услуг.</figcaption>
+      </figure>
+      <figure>
+        <img src="tz.fld/image028.jpg" alt="Пример структуры данных для сверки">
+        <figcaption>Пример структуры данных для контроля оплат.</figcaption>
+      </figure>
+      <figure>
+        <img src="tz.fld/image030.jpg" alt="Логика перевода сделки в оплачено">
+        <figcaption>Логика перехода сделки при полной оплате.</figcaption>
+      </figure>
+      <figure>
+        <img src="tz.fld/image032.jpg" alt="Предложенная структура от специалистов amoCRM">
+        <figcaption>Предложенная структура данных от специалистов amoCRM.</figcaption>
+      </figure>
+
+      <div class="result">
+        <strong>Результат этапа:</strong> amoCRM получает статусы оплат из 1С, корректно отражает оплату по сделке и автоматически переводит сделку в этап «Оплачено» при выполнении условий.
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>7. Критерии приемки</h2>
+      <ol>
+        <li>При переводе сделки в «Договор» данные попадают в буфер на нашей стороне и доступны 1С для забора без потерь.</li>
+        <li>1С забирает данные по расписанию (1-5 минут или согласованный интервал) и обрабатывает клиентов на своей стороне.</li>
+        <li>По каждому обработанному клиенту 1С отправляет callback на отдельный endpoint, callback корректно сопоставляется с исходным пакетом.</li>
+        <li>При дубле ИНН новый контрагент не создаётся; возвращается существующий ID.</li>
+        <li>В amoCRM сохраняется ID контрагента из 1С.</li>
+        <li>Событие оплаты из 1С приходит в реальном времени на webhook и отражается в соответствующей сделке amoCRM.</li>
+        <li>При полной оплате всех обязательных счетов сделка автоматически переходит в «Оплачено».</li>
+        <li>Ошибки забора, callback и webhook-обработки логируются и видимы для ответственных.</li>
+      </ol>
+    </section>
+
+    <section class="card">
+      <h2>8. Формат обмена данными и endpoint-ы</h2>
+      <h3>8.1. Общие правила обмена</h3>
+      <ul>
+        <li>Формат обмена: <code>application/json; charset=utf-8</code>.</li>
+        <li>Время передаётся в ISO 8601 (пример: <code>2026-03-05T10:30:00+10:00</code>).</li>
+        <li>Идемпотентность: для входящих запросов передаётся уникальный <code>eventId</code>/<code>requestId</code>.</li>
+        <li>Ключ сопоставления сделки и счетов между системами: <code>vin</code>.</li>
+      </ul>
+
+      <h3>8.2. Endpoint-ы потока A (amoCRM → наш сервер → 1С)</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Метод</th>
+            <th>Endpoint (пример)</th>
+            <th>Кто вызывает</th>
+            <th>Назначение</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>POST</td>
+            <td><code>/api/v1/amocrm/deals/contract-ready</code></td>
+            <td>amoCRM</td>
+            <td>Передача данных сделки/клиента в наш буфер при входе сделки в стадию «Договор».</td>
+          </tr>
+          <tr>
+            <td>GET</td>
+            <td><code>/api/v1/integrations/1c/contacts/pending</code></td>
+            <td>1С</td>
+            <td>Забор накопленных данных из нашего буфера по расписанию (1-5 минут).</td>
+          </tr>
+          <tr>
+            <td>POST</td>
+            <td><code>/api/v1/integrations/1c/contacts/result</code></td>
+            <td>1С</td>
+            <td>Callback результата обработки конкретного клиента (created/found/error).</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p><strong>Пример ответа буфера для 1С</strong> (GET <code>/contacts/pending</code>):</p>
+      <pre>{
+  "requestId": "req_7f8a2d9c",
+  "dealId": 26460695,
+  "vin": "WVWZZZ1JZXW000001",
+  "clientType": "individual",
+  "client": {
+    "fullName": "Иванов Иван Иванович",
+    "phone": "+79001234567",
+    "inn": "123456789012",
+    "snils": "123-456-789 00"
+  },
+  "deal": {
+    "dealNumber": "26460695",
+    "contractNumber": "DG-2026-00031"
+  }
+}</pre>
+
+      <p><strong>Пример callback от 1С</strong> (POST <code>/contacts/result</code>):</p>
+      <pre>{
+  "requestId": "req_7f8a2d9c",
+  "vin": "WVWZZZ1JZXW000001",
+  "1cId": "1c_ctr_987654",
+  "status": "found",
+  "processedAt": "2026-03-05T10:32:41+10:00",
+  "error": null
+}</pre>
+
+      <h3>8.3. Endpoint потока B (1С → amoCRM, real-time)</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Метод</th>
+            <th>Endpoint (пример)</th>
+            <th>Кто вызывает</th>
+            <th>Назначение</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>POST</td>
+            <td><code>/api/v1/integrations/1c/payments/webhook</code></td>
+            <td>1С</td>
+            <td>Передача факта оплаты в amoCRM в реальном времени.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p><strong>Контракт payload оплаты (основной)</strong>:</p>
+      <pre>{
+  "requestId": "pay_evt_20260305_0001",
+  "vin": "WVWZZZ1JZXW000001",
+  "services": [
+    {
+      "code": "ptd",
+      "paidAmount": 15000
+    },
+    {
+      "code": "svh_storage",
+      "paidAmount": 7000
+    }
+  ]
+}</pre>
+
+      <h3>8.4. Справочник кодов услуг (services[].code)</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>code</th>
+            <th>Наименование услуги</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>ptd</code></td>
+            <td>Оформление ПТД</td>
+          </tr>
+          <tr>
+            <td><code>transit_declaration</code></td>
+            <td>Оформление транзитной декларации</td>
+          </tr>
+          <tr>
+            <td><code>auto_expertise_request</code></td>
+            <td>Оформление заявки на проведение автотехнической экспертизы</td>
+          </tr>
+          <tr>
+            <td><code>lab_sbkts_epts</code></td>
+            <td>Прохождение лаборатории для получения СБКТС и выдачи ЭПТС</td>
+          </tr>
+          <tr>
+            <td><code>svh_storage</code></td>
+            <td>Хранение на СВХ</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>8.5. Правила обработки webhook оплаты</h3>
+      <ul>
+        <li>В одном событии передаётся один <code>vin</code>.</li>
+        <li>В массиве <code>services</code> передаётся одна или несколько услуг.</li>
+        <li><code>paidAmount</code> передаётся накопленным итогом по услуге на момент отправки (не дельта).</li>
+      </ul>
+
+      <h3>8.6. Требования к real-time методам API (доставка и подтверждение)</h3>
+      <ul>
+        <li>Для всех real-time методов API принимающая сторона обязана вернуть HTTP-статус <code>200 OK</code> как подтверждение успешного приёма.</li>
+        <li>Любой иной HTTP-статус (не 200), timeout, сетевая ошибка или техническая ошибка при вызове считается недоставкой сообщения.</li>
+        <li>Ответственность за повторную отправку данных при недоставке полностью лежит на отправляющей стороне.</li>
+        <li>Данное правило применяется ко всем push/callback вызовам в рамках интеграции, включая:
+          <code>POST /api/v1/amocrm/deals/contract-ready</code>,
+          <code>POST /api/v1/integrations/1c/contacts/result</code>,
+          <code>POST /api/v1/integrations/1c/payments/webhook</code>.
+        </li>
+      </ul>
+      <div class="result">
+        <strong>Результат этапа:</strong> форматы и endpoint-ы унифицированы для всех сторон; по каждому потоку есть зафиксированный метод, направление вызова и пример JSON.
+      </div>
+    </section>
+
+  </main>
+</body>
+</html>
