@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FAQ для 1С: API интеграции</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; margin: 28px auto; max-width: 980px; line-height: 1.45; color: #111; padding: 0 16px; }
+    h1 { font-size: 28px; margin: 0 0 12px; }
+    h2 { font-size: 21px; margin-top: 26px; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+    pre { background: #f6f8fa; border-radius: 8px; padding: 12px; overflow-x: auto; }
+    .muted { color: #555; }
+  </style>
+</head>
+<body>
+  <h1>FAQ для программиста 1С по API</h1>
+  <p class="muted">Базовый URL: <code>http://api-avto-terminal.ru</code></p>
+
+  <h2>1) <code>/api/amocrm/integrations/1c/contacts/result</code>: можно передавать массив или только по одному?</h2>
+  <p><b>Сейчас только по одному.</b></p>
+  <p>Endpoint валидирует одиночный объект с обязательным <code>requestId</code> и <code>status</code>. Массив объектов не поддержан.</p>
+  <pre>{
+  "requestId": "req_xxxxxxxxxxxx",
+  "status": "created | found | error",
+  "1cId": "optional",
+  "vin": "optional",
+  "processedAt": "optional",
+  "error": "optional"
+}</pre>
+
+  <h2>2) <code>/api/amocrm/integrations/1c/contacts/pending?limit=50</code>: как работает <code>limit</code>?</h2>
+  <p><b>Да, limit работает.</b></p>
+  <ul>
+    <li>Параметр <code>limit</code> необязательный.</li>
+    <li>Если не передать, по умолчанию используется <code>50</code>.</li>
+    <li>Допустимый диапазон: <code>1..200</code>.</li>
+  </ul>
+  <p>Каждый запрос к <code>pending</code> возвращает новую порцию из записей со статусом <code>pending</code>, и сразу помечает их как <code>pulled</code>. Поэтому повторный вызов не вернет уже выданные записи, если их не перевести обратно в <code>pending</code>.</p>
+
+  <h2>3) Пример header для запросов 1С</h2>
+  <p><b>GET pending:</b></p>
+  <pre>Authorization: Bearer &lt;SANCTUM_TOKEN&gt;
+Accept: application/json</pre>
+
+  <p><b>POST result:</b></p>
+  <pre>Authorization: Bearer &lt;SANCTUM_TOKEN&gt;
+Accept: application/json
+Content-Type: application/json</pre>
+
+  <h2>4) <code>processedAt</code>: что отправлять?</h2>
+  <p>Рекомендуется передавать дату/время фактической обработки в 1С в формате ISO-8601 с timezone, например:</p>
+  <pre>"processedAt": "2026-03-20T14:25:00+10:00"</pre>
+  <p>Если поле не передать, API поставит текущее время сервера автоматически.</p>
+
+  <h2>5) Минимальные рабочие примеры</h2>
+  <p><b>Получить pending:</b></p>
+  <pre>GET http://api-avto-terminal.ru/api/amocrm/integrations/1c/contacts/pending?limit=50</pre>
+
+  <p><b>Отправить результат:</b></p>
+  <pre>POST http://api-avto-terminal.ru/api/amocrm/integrations/1c/contacts/result
+
+{
+  "requestId": "req_jvqa7tml46vk",
+  "status": "created",
+  "1cId": "1c-ctr-legal-0003",
+  "processedAt": "2026-03-20T14:25:00+10:00"
+}</pre>
+</body>
+</html>
