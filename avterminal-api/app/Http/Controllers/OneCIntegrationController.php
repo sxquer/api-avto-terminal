@@ -118,15 +118,32 @@ class OneCIntegrationController extends Controller
     public function contactsResult(Request $request): JsonResponse
     {
         try {
+            // Поддерживаем legacy-ключи, но внутри нормализуем в 1cId.
+            if (!$request->has('1cId')) {
+                if ($request->has('1cID')) {
+                    $request->merge([
+                        '1cId' => $request->input('1cID'),
+                    ]);
+                } elseif ($request->has('1cid')) {
+                    $request->merge([
+                        '1cId' => $request->input('1cid'),
+                    ]);
+                }
+            }
+
             $validated = $request->validate([
                 'requestId' => 'required|string',
                 'vin' => 'nullable|string',
                 '1cId' => 'nullable|string',
+                '1cID' => 'nullable|string',
+                '1cid' => 'nullable|string',
                 'status' => 'required|string|in:created,found,error',
                 'processedAt' => 'nullable|string',
                 'error' => 'nullable|string',
             ]);
 
+            unset($validated['1cID']);
+            unset($validated['1cid']);
             $result = $this->flowService->processResult($validated);
 
             return response()->json($result, 200);

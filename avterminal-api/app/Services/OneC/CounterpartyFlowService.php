@@ -27,43 +27,23 @@ class CounterpartyFlowService
         $payload = $this->buildPayloadFromLead($leadId);
         $payloadHash = hash('sha256', json_encode($payload, JSON_UNESCAPED_UNICODE));
 
-        // Схлопываем повторные события по одному lead, пока запись не обработана 1С.
-        $active = OneCCounterpartyBuffer::query()
-            ->where('lead_id', $leadId)
-            ->whereIn('status', ['pending', 'pulled'])
-            ->latest('id')
-            ->first();
-
-        if ($active) {
-            $this->addLeadComment($leadId, sprintf(
-                "[1C] Запрос уже в буфере. requestId=%s, status=%s",
-                $active->request_id,
-                $active->status
-            ));
-
-            return [
-                'requestId' => $active->request_id,
-                'status' => 'already_buffered',
-            ];
-        }
-
-        // Если ранее такой же payload уже успешно обработан, повторно не ставим в буфер.
-        $existingProcessed = OneCCounterpartyBuffer::query()
+        // Дедупликация только по payload_hash: если такой payload уже есть по сделке,
+        // повторно в буфер не ставим вне зависимости от статуса существующей записи.
+        $existingSamePayload = OneCCounterpartyBuffer::query()
             ->where('lead_id', $leadId)
             ->where('payload_hash', $payloadHash)
-            ->where('status', 'processed')
             ->latest('id')
             ->first();
 
-        if ($existingProcessed) {
+        if ($existingSamePayload) {
             $this->addLeadComment($leadId, sprintf(
-                "[1C] Повторный запрос: идентичные данные уже обработаны. requestId=%s, status=%s",
-                $existingProcessed->request_id,
-                $existingProcessed->status
+                "[1C] Повторный запрос: идентичные данные уже есть в буфере/истории. requestId=%s, status=%s",
+                $existingSamePayload->request_id,
+                $existingSamePayload->status
             ));
 
             return [
-                'requestId' => $existingProcessed->request_id,
+                'requestId' => $existingSamePayload->request_id,
                 'status' => 'already_buffered',
             ];
         }

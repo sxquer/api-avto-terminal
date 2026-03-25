@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>1С Integration: схема дублей и очереди</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      margin: 28px auto;
+      max-width: 980px;
+      line-height: 1.5;
+      color: #111;
+      padding: 0 16px;
+    }
+    h1 { font-size: 28px; margin: 0 0 10px; }
+    h2 { font-size: 22px; margin-top: 26px; }
+    h3 { font-size: 18px; margin-top: 20px; }
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+    }
+    pre {
+      background: #f6f8fa;
+      border-radius: 8px;
+      padding: 12px;
+      overflow-x: auto;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 10px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #f6f8fa; }
+    .muted { color: #555; }
+  </style>
+</head>
+<body>
+  <h1>Схема проверки дублей и очереди (amoCRM → 1С)</h1>
+  <p class="muted">Актуально для endpoint постановки в буфер контрагентов после обновления логики дедупликации.</p>
+
+  <h2>1. Ключевой принцип</h2>
+  <p>Дедупликация выполняется <b>только по <code>payload_hash</code></b> в рамках одной сделки (<code>lead_id</code>).</p>
+  <ul>
+    <li>Если по этой сделке уже есть запись с таким же <code>payload_hash</code>, новая запись <b>не создается</b>.</li>
+    <li>Если <code>payload_hash</code> изменился, создается <b>новая</b> запись в очереди, даже если старая еще <code>pending</code> или <code>pulled</code>.</li>
+  </ul>
+
+  <h2>2. Как считается payload_hash</h2>
+  <p><code>payload_hash = sha256(json(payload))</code>, где <code>payload</code> формируется из бизнес-данных карточки:</p>
+  <ul>
+    <li><code>vin</code></li>
+    <li><code>dealId</code></li>
+    <li><code>clientType</code>, <code>clientTypeRaw</code></li>
+    <li><code>client</code> (данные физ/юрлица)</li>
+    <li><code>deal</code></li>
+    <li><code>_meta</code></li>
+  </ul>
+  <p><b>Важно:</b> <code>requestId</code> в payload добавляется после расчета хэша, поэтому сам по себе новый <code>requestId</code> не влияет на dedupe.</p>
+
+  <h2>3. Поведение очереди</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Ситуация</th>
+        <th>Результат</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Первая отправка карточки</td>
+        <td>Создается запись <code>pending</code>, выдается новый <code>requestId</code>.</td>
+      </tr>
+      <tr>
+        <td>Повторная отправка без изменений</td>
+        <td>Новая запись не создается, возвращается <code>already_buffered</code> и <code>requestId</code> существующей записи с тем же hash.</td>
+      </tr>
+      <tr>
+        <td>Карточка изменена, старая запись еще <code>pending/pulled</code></td>
+        <td>Создается новая запись (новый hash, новый <code>requestId</code>). Старая запись остается в очереди.</td>
+      </tr>
+      <tr>
+        <td>Карточка изменена после <code>processed</code> или <code>error</code></td>
+        <td>Создается новая запись (если hash новый).</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>4. Жизненный цикл записи</h2>
+  <ol>
+    <li><code>pending</code>: запись создана и ждет, когда 1С заберет ее через <code>GET /pending</code>.</li>
+    <li><code>pulled</code>: запись уже отдана 1С.</li>
+    <li><code>processed</code> или <code>error</code>: 1С прислала callback в <code>POST /result</code>.</li>
+  </ol>
+
+  <h2>5. Почему это удобно для бизнеса</h2>
+  <ul>
+    <li>Можно исправить данные в amoCRM и сразу отправить новую версию карточки.</li>
+    <li>Текущий цикл обработки в 1С не ломается: старая запись остается валидной до своего callback.</li>
+    <li>Защита от дублей сохраняется: одинаковая версия payload не попадет в очередь повторно.</li>
+  </ul>
+
+  <h2>6. Короткий пример</h2>
+  <pre>t0: отправка #1 (hash=A) => pending, requestId=req_1
+t1: оператор меняет ИНН в карточке
+t2: отправка #2 (hash=B) => pending, requestId=req_2 (создана новая запись)
+t3: 1С обрабатывает req_1 и затем req_2
+t4: итоговое состояние контрагента соответствует последней версии данных (hash=B)</pre>
+</body>
+</html>
