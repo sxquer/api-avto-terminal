@@ -176,6 +176,16 @@ class OneCIntegrationController extends Controller
 
             $limit = (int) ($validated['limit'] ?? 5);
             $items = $this->flowService->getLatestBufferStatuses($limit);
+            $pullBaseUrl = url('/api/amocrm/integrations/1c/debug/pull-by-request');
+
+            $items = array_map(function (array $item) use ($pullBaseUrl) {
+                $requestId = (string) ($item['requestId'] ?? '');
+                $item['pullByRequestUrl'] = $requestId !== ''
+                    ? $pullBaseUrl . '?' . http_build_query(['requestId' => $requestId])
+                    : null;
+
+                return $item;
+            }, $items);
 
             return response()->json([
                 'count' => count($items),
