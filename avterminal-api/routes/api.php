@@ -26,7 +26,7 @@ Route::get('/test', [AmoCRMController::class, 'testFindByVin']);
 Route::get('/amocrm/info', [AmoCRMController::class, 'info'])->middleware('log.amo.requests');
 Route::get('/amocrm/logs', [AmoRequestLogController::class, 'index']);
 Route::get('/amocrm/integrations/1c/debug/statuses', [OneCIntegrationController::class, 'debugLatestStatuses']);
-Route::post('/amocrm/integrations/1c/debug/pull-by-request', [OneCIntegrationController::class, 'debugPullByRequestId']);
+Route::get('/amocrm/integrations/1c/debug/pull-by-request', [OneCIntegrationController::class, 'debugPullByRequestId']);
 Route::post('/amocrm/deals/contract-ready', [OneCIntegrationController::class, 'contractReady'])
     ->middleware('log.amo.requests');
 
