@@ -46,7 +46,7 @@ class OneCIntegrationController extends Controller
                 ], 200);
             }
 
-            $result = $this->flowService->enqueueFromLead((int) $context['dealId']);
+            $result = $this->flowService->enqueueFromLead((int) $context['dealId'], $payload);
             $result['source'] = $context['source'];
 
             return response()->json($result, 200);
@@ -145,6 +145,67 @@ class OneCIntegrationController extends Controller
             unset($validated['1cID']);
             unset($validated['1cid']);
             $result = $this->flowService->processResult($validated);
+
+            return response()->json($result, 200);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'error' => 'Validation failed',
+                'details' => $e->errors(),
+            ], 422);
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+            ], 404);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Debug endpoint: последние записи очереди синхронизации 1С.
+     * Без авторизации, как /amocrm/logs.
+     */
+    public function debugLatestStatuses(Request $request): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'limit' => 'sometimes|integer|min:1|max:50',
+            ]);
+
+            $limit = (int) ($validated['limit'] ?? 5);
+            $items = $this->flowService->getLatestBufferStatuses($limit);
+
+            return response()->json([
+                'count' => count($items),
+                'items' => $items,
+            ], 200);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'error' => 'Validation failed',
+                'details' => $e->errors(),
+            ], 422);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Debug endpoint: эмулирует отдачу в 1С для конкретного requestId.
+     * Если запись pending, переводит в pulled и возвращает payload, как в pending pull.
+     * Без авторизации, как /amocrm/logs.
+     */
+    public function debugPullByRequestId(Request $request): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'requestId' => 'required|string',
+            ]);
+
+            $result = $this->flowService->debugPullByRequestId($validated['requestId']);
 
             return response()->json($result, 200);
         } catch (\Illuminate\Validation\ValidationException $e) {

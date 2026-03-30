@@ -22,9 +22,9 @@ class CounterpartyFlowService
     /**
      * Собирает данные по сделке и ставит контрагента в буфер на отдачу в 1С.
      */
-    public function enqueueFromLead(int $leadId): array
+    public function enqueueFromLead(int $leadId, array $incomingPayload = []): array
     {
-        $payload = $this->buildPayloadFromLead($leadId);
+        $payload = $this->buildPayloadFromLead($leadId, $incomingPayload);
         $payloadHash = hash('sha256', json_encode($payload, JSON_UNESCAPED_UNICODE));
 
         // Дедупликация только по payload_hash: если такой payload уже есть по сделке,
@@ -122,6 +122,108 @@ class CounterpartyFlowService
     }
 
     /**
+     * Возвращает последние записи буфера (для debug-диагностики).
+     */
+    public function getLatestBufferStatuses(int $limit = 5): array
+    {
+        $limit = max(1, min($limit, 50));
+
+        return OneCCounterpartyBuffer::query()
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get([
+                'id',
+                'request_id',
+                'lead_id',
+                'contact_id',
+                'company_id',
+                'vin',
+                'status',
+                'pull_attempts',
+                'onec_counterparty_id',
+                'onec_processing_status',
+                'last_error',
+                'pulled_at',
+                'processed_at',
+                'created_at',
+                'updated_at',
+            ])
+            ->map(fn (OneCCounterpartyBuffer $row) => [
+                'id' => $row->id,
+                'requestId' => $row->request_id,
+                'leadId' => $row->lead_id,
+                'contactId' => $row->contact_id,
+                'companyId' => $row->company_id,
+                'vin' => $row->vin,
+                'status' => $row->status,
+                'pullAttempts' => $row->pull_attempts,
+                'onecCounterpartyId' => $row->onec_counterparty_id,
+                'onecProcessingStatus' => $row->onec_processing_status,
+                'lastError' => $row->last_error,
+                'pulledAt' => $row->pulled_at?->toIso8601String(),
+                'processedAt' => $row->processed_at?->toIso8601String(),
+                'createdAt' => $row->created_at?->toIso8601String(),
+                'updatedAt' => $row->updated_at?->toIso8601String(),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Debug-процедура: отдать payload по requestId так, как его отдает pending pull.
+     * Если запись в pending — переводим в pulled и создаем pulled-event.
+     */
+    public function debugPullByRequestId(string $requestId): array
+    {
+        $buffer = OneCCounterpartyBuffer::query()
+            ->where('request_id', $requestId)
+            ->first();
+
+        if (!$buffer) {
+            throw new \RuntimeException('requestId not found');
+        }
+
+        $payload = json_decode((string) $buffer->payload_json, true);
+        $payload = is_array($payload) ? $payload : [];
+
+        $previousStatus = $buffer->status;
+        $wasPulledNow = false;
+
+        if ($buffer->status === 'pending') {
+            $newAttemptNo = $buffer->pull_attempts + 1;
+
+            $buffer->update([
+                'status' => 'pulled',
+                'pull_attempts' => $newAttemptNo,
+                'pulled_at' => now(),
+            ]);
+
+            OneCCounterpartySyncEvent::query()->create([
+                'buffer_id' => $buffer->id,
+                'event_type' => 'pulled',
+                'attempt_no' => $newAttemptNo,
+                'request_id' => $buffer->request_id,
+                'response_payload' => $buffer->payload_json,
+                'result' => 'success',
+            ]);
+
+            $buffer->refresh();
+            $wasPulledNow = true;
+        }
+
+        return [
+            'requestId' => $buffer->request_id,
+            'leadId' => (int) $buffer->lead_id,
+            'previousStatus' => $previousStatus,
+            'currentStatus' => $buffer->status,
+            'wasPulledNow' => $wasPulledNow,
+            'pullAttempts' => (int) $buffer->pull_attempts,
+            'pulledAt' => $buffer->pulled_at?->toIso8601String(),
+            'payload' => $payload,
+        ];
+    }
+
+    /**
      * Принимает callback от 1С с результатом обработки контрагента.
      */
     public function processResult(array $data): array
@@ -174,28 +276,63 @@ class CounterpartyFlowService
         ];
     }
 
-    private function buildPayloadFromLead(int $leadId): array
+    private function buildPayloadFromLead(int $leadId, array $incomingPayload = []): array
     {
         $api = $this->amoCRMService->getClient();
         $lead = $api->leads()->getOne($leadId, ['contacts', 'companies']);
         $leadArr = $lead->toArray();
 
+        $incomingLead = is_array($incomingPayload['lead'] ?? null) ? $incomingPayload['lead'] : [];
+        $incomingContact = is_array($incomingPayload['contact'] ?? null) ? $incomingPayload['contact'] : [];
+        $incomingCompany = is_array($incomingPayload['company'] ?? null) ? $incomingPayload['company'] : [];
+
         $contact = null;
         $company = null;
 
-        $contactId = $leadArr['contacts'][0]['id'] ?? null;
+        $contactId = $this->toNullableInt($leadArr['contacts'][0]['id'] ?? null)
+            ?? $this->toNullableInt($incomingLead['main_contact_id'] ?? null)
+            ?? $this->toNullableInt($incomingContact['id'] ?? null);
         if ($contactId) {
-            $contact = $api->contacts()->getOne((int) $contactId)->toArray();
+            try {
+                $contact = $api->contacts()->getOne((int) $contactId)->toArray();
+            } catch (\Throwable) {
+                // Fallback ниже: используем contact из webhook payload, если есть.
+            }
         }
 
-        $companyId = $leadArr['companies'][0]['id'] ?? null;
+        $companyId = $this->toNullableInt($leadArr['companies'][0]['id'] ?? null)
+            ?? $this->toNullableInt($incomingLead['linked_company_id'] ?? null)
+            ?? $this->toNullableInt($incomingCompany['id'] ?? null);
         if ($companyId) {
-            $company = $api->companies()->getOne((int) $companyId)->toArray();
+            try {
+                $company = $api->companies()->getOne((int) $companyId)->toArray();
+            } catch (\Throwable) {
+                // Fallback ниже: используем company из webhook payload, если есть.
+            }
         }
 
-        $leadFields = $leadArr['custom_fields_values'] ?? [];
-        $contactFields = $contact['custom_fields_values'] ?? [];
-        $companyFields = $company['custom_fields_values'] ?? [];
+        if (!$contact && !empty($incomingContact)) {
+            $contact = $this->normalizeIncomingEntity($incomingContact);
+        }
+
+        if (!$company && !empty($incomingCompany)) {
+            $company = $this->normalizeIncomingEntity($incomingCompany);
+        }
+
+        $leadFields = $this->extractEntityCustomFields($leadArr);
+        if (empty($leadFields) && !empty($incomingLead)) {
+            $leadFields = $this->extractEntityCustomFields($incomingLead);
+        }
+
+        $contactFields = $contact ? $this->extractEntityCustomFields($contact) : [];
+        if (empty($contactFields) && !empty($incomingContact)) {
+            $contactFields = $this->extractEntityCustomFields($incomingContact);
+        }
+
+        $companyFields = $company ? $this->extractEntityCustomFields($company) : [];
+        if (empty($companyFields) && !empty($incomingCompany)) {
+            $companyFields = $this->extractEntityCustomFields($incomingCompany);
+        }
 
         $vin = $this->getCustomFieldValueById($leadFields, 808681);
         $clientTypeRaw = (string) ($this->getCustomFieldValueById($leadFields, 917427) ?? '');
@@ -209,7 +346,7 @@ class CounterpartyFlowService
 
         $client = $clientType === 'legal'
             ? [
-                'name' => $company['name'] ?? $this->getCustomFieldValueById($companyFields, 897711),
+                'name' => ($company['name'] ?? null) ?: $this->getCustomFieldValueById($companyFields, 897711),
                 'phone' => $this->extractPhone($companyFields),
                 'inn' => (string) ($this->getCustomFieldValueById($companyFields, 897733) ?? ''),
                 'kpp' => (string) ($this->getCustomFieldValueById($companyFields, 897735) ?? ''),
@@ -268,7 +405,11 @@ class CounterpartyFlowService
     private function extractPhone(array $fields): ?string
     {
         foreach ($fields as $field) {
-            if (($field['field_code'] ?? null) !== 'PHONE') {
+            $fieldCode = (string) ($field['field_code'] ?? '');
+            $fieldName = mb_strtolower((string) ($field['field_name'] ?? ''), 'UTF-8');
+            $looksLikePhoneField = str_contains($fieldName, 'телефон') || str_contains($fieldName, 'phone');
+
+            if ($fieldCode !== 'PHONE' && !$looksLikePhoneField) {
                 continue;
             }
 
@@ -281,6 +422,88 @@ class CounterpartyFlowService
         }
 
         return null;
+    }
+
+    private function toNullableInt(mixed $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return is_numeric($value) ? (int) $value : null;
+    }
+
+    private function extractEntityCustomFields(array $entity): array
+    {
+        $fields = $entity['custom_fields_values'] ?? null;
+        if (is_array($fields) && !empty($fields)) {
+            return $fields;
+        }
+
+        $legacyFields = $entity['custom_fields'] ?? null;
+        if (is_array($legacyFields) && !empty($legacyFields)) {
+            return $this->normalizeLegacyCustomFields($legacyFields);
+        }
+
+        return [];
+    }
+
+    private function normalizeIncomingEntity(array $entity): array
+    {
+        $normalized = $entity;
+        $normalized['custom_fields_values'] = $this->extractEntityCustomFields($entity);
+
+        return $normalized;
+    }
+
+    private function normalizeLegacyCustomFields(array $customFields): array
+    {
+        $result = [];
+
+        foreach ($customFields as $key => $field) {
+            if (!is_array($field)) {
+                continue;
+            }
+
+            $fieldId = (int) ($field['id'] ?? (is_numeric($key) ? $key : 0));
+            if ($fieldId <= 0) {
+                continue;
+            }
+
+            $values = [];
+            foreach (($field['values'] ?? []) as $valueItem) {
+                if (!is_array($valueItem)) {
+                    continue;
+                }
+
+                $normalizedValue = [];
+                if (array_key_exists('value', $valueItem)) {
+                    $normalizedValue['value'] = $valueItem['value'];
+                }
+                if (array_key_exists('enum', $valueItem)) {
+                    $normalizedValue['enum'] = $valueItem['enum'];
+                } elseif (!array_key_exists('value', $valueItem) && array_key_exists('enum_id', $valueItem)) {
+                    $normalizedValue['enum'] = $valueItem['enum_id'];
+                }
+
+                if (!empty($normalizedValue)) {
+                    $values[] = $normalizedValue;
+                }
+            }
+
+            if (empty($values) && array_key_exists('value', $field)) {
+                $values[] = ['value' => $field['value']];
+            }
+
+            $result[] = [
+                'field_id' => $fieldId,
+                'field_name' => $field['name'] ?? ($field['field_name'] ?? null),
+                'field_code' => $field['code'] ?? ($field['field_code'] ?? null),
+                'values' => $values,
+            ];
+        }
+
+        return $result;
     }
 
     private function addLeadComment(int $leadId, string $text): void
