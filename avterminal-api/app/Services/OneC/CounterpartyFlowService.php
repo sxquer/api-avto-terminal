@@ -334,9 +334,17 @@ class CounterpartyFlowService
             $companyFields = $this->extractEntityCustomFields($incomingCompany);
         }
 
-        $vin = $this->getCustomFieldValueById($leadFields, 808681);
+        $vin = $this->getCustomFieldValueByConfig($leadFields, 'vin_field_id', 808681);
         $clientTypeRaw = (string) ($this->getCustomFieldValueById($leadFields, 917427) ?? '');
         $clientType = mb_stripos($clientTypeRaw, 'юр') !== false ? 'legal' : 'individual';
+        $brand = $this->getCustomFieldValueByConfig($leadFields, 'car_brand', 808679);
+        $model = $this->getCustomFieldValueByConfig($leadFields, 'car_model', 808675);
+        $warehouse = $this->getCustomFieldValueByConfig($leadFields, 'warehouse', 969469);
+        $companyName = ($company['name'] ?? null) ?: $this->getCustomFieldValueById($companyFields, 897711);
+        $companyInn = $this->normalizeOptionalString($this->getCustomFieldValueById($companyFields, 897733));
+        $contractDate = $clientType === 'legal'
+            ? $this->getCustomFieldValueByConfig($companyFields, 'contract_date_company', 919495)
+            : $this->getCustomFieldValueByConfig($contactFields, 'contract_date_contact', 947713);
 
         $contactFullName = trim(implode(' ', array_filter([
             $this->getCustomFieldValueById($contactFields, 974793),
@@ -346,9 +354,9 @@ class CounterpartyFlowService
 
         $client = $clientType === 'legal'
             ? [
-                'name' => ($company['name'] ?? null) ?: $this->getCustomFieldValueById($companyFields, 897711),
+                'name' => $companyName,
                 'phone' => $this->extractPhone($companyFields),
-                'inn' => (string) ($this->getCustomFieldValueById($companyFields, 897733) ?? ''),
+                'inn' => (string) ($companyInn ?? ''),
                 'kpp' => (string) ($this->getCustomFieldValueById($companyFields, 897735) ?? ''),
                 'legalAddress' => $this->getCustomFieldValueById($companyFields, 897747),
                 'rs' => (string) ($this->getCustomFieldValueById($companyFields, 897751) ?? ''),
@@ -365,6 +373,8 @@ class CounterpartyFlowService
                 'registrationAddress' => $this->getCustomFieldValueById($contactFields, 808697),
                 'inn' => $this->getCustomFieldValueById($contactFields, 955217),
                 'snils' => $this->getCustomFieldValueById($contactFields, 945706),
+                'dealerName' => $companyName,
+                'dealerInn' => $companyInn,
             ];
 
         return [
@@ -375,12 +385,30 @@ class CounterpartyFlowService
             'client' => $client,
             'deal' => [
                 'dealNumber' => (string) $leadId,
+                'contractNumber' => (string) $leadId,
+                'contractDate' => $contractDate,
+                'warehouse' => $warehouse,
+                'brand' => $brand,
+                'model' => $model,
             ],
             '_meta' => [
                 'contactId' => $contactId,
                 'companyId' => $companyId,
             ],
         ];
+    }
+
+    private function getCustomFieldValueByConfig(array $fields, string $configKey, int $fallbackFieldId): mixed
+    {
+        return $this->getCustomFieldValueById(
+            $fields,
+            $this->getConfiguredFieldId($configKey, $fallbackFieldId)
+        );
+    }
+
+    private function getConfiguredFieldId(string $configKey, int $default): int
+    {
+        return (int) (config("amocrm.fields.{$configKey}.id") ?: $default);
     }
 
     private function getCustomFieldValueById(array $fields, int $fieldId): mixed
@@ -400,6 +428,17 @@ class CounterpartyFlowService
         }
 
         return null;
+    }
+
+    private function normalizeOptionalString(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $stringValue = trim((string) $value);
+
+        return $stringValue === '' ? null : $stringValue;
     }
 
     private function extractPhone(array $fields): ?string

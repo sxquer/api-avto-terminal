@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Изменения интеграции amoCRM -> 1С от 2026-04-13</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #5a6882;
+      --line: #d9e1ef;
+      --accent: #1f6feb;
+      --accent-soft: #eaf2ff;
+      --ok: #0f766e;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: linear-gradient(180deg, #eef4ff 0%, var(--bg) 260px);
+      color: var(--text);
+      line-height: 1.55;
+    }
+
+    .wrap {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 40px 24px 64px;
+    }
+
+    .hero,
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 12px 32px rgba(31, 52, 92, 0.08);
+    }
+
+    .hero {
+      padding: 28px 32px;
+      margin-bottom: 24px;
+    }
+
+    .card {
+      padding: 24px 28px;
+      margin-bottom: 18px;
+    }
+
+    h1, h2, h3 {
+      margin: 0 0 14px;
+      line-height: 1.2;
+    }
+
+    h1 { font-size: 32px; }
+    h2 { font-size: 22px; }
+    h3 { font-size: 18px; }
+
+    p { margin: 0 0 12px; }
+
+    .meta {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 14px;
+    }
+
+    .ok {
+      color: var(--ok);
+      font-weight: 600;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    li { margin: 0 0 8px; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      overflow: hidden;
+      border-radius: 12px;
+    }
+
+    th, td {
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f3f6fc;
+      font-weight: 700;
+    }
+
+    code {
+      font-family: "SFMono-Regular", Consolas, monospace;
+      background: #f3f6fc;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 0.95em;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="meta">amoCRM -> 1С • 2026-04-13</div>
+      <h1>Отчет по доработке payload для интеграции с 1С</h1>
+      <p>Ниже зафиксированы изменения, внесенные на стороне сервера обмена для отправки данных из amoCRM в 1С.</p>
+      <p class="ok">Статус: изменения внесены и покрыты автотестом.</p>
+    </section>
+
+    <section class="card">
+      <h2>Что изменено</h2>
+      <ul>
+        <li>В исходящий payload добавлены реквизиты сделки: номер договора, дата договора, склад, марка и модель.</li>
+        <li>Номер договора теперь передается как <code>ID сделки</code>.</li>
+        <li>Дата договора определяется по типу клиента: для юрлица берется из компании, для физлица из контакта.</li>
+        <li>Для физлица в payload добавлены реквизиты автодилера: название связанной компании и ее ИНН.</li>
+        <li>Поля вынесены в конфиг, чтобы их можно было менять без повторного хардкода по сервису.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Новый маппинг полей</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Поле payload</th>
+            <th>Источник</th>
+            <th>ID поля amoCRM</th>
+            <th>Правило</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>deal.contractNumber</code></td>
+            <td>Сделка</td>
+            <td>не поле</td>
+            <td>Берется как <code>ID сделки</code></td>
+          </tr>
+          <tr>
+            <td><code>deal.contractDate</code></td>
+            <td>Компания</td>
+            <td><code>919495</code></td>
+            <td>Если клиент <code>Юр. лицо</code></td>
+          </tr>
+          <tr>
+            <td><code>deal.contractDate</code></td>
+            <td>Контакт</td>
+            <td><code>947713</code></td>
+            <td>Если клиент <code>Физ Лицо</code></td>
+          </tr>
+          <tr>
+            <td><code>deal.warehouse</code></td>
+            <td>Сделка</td>
+            <td><code>969469</code></td>
+            <td>Поле списка <code>Склад</code></td>
+          </tr>
+          <tr>
+            <td><code>deal.brand</code></td>
+            <td>Сделка</td>
+            <td><code>808679</code></td>
+            <td>Поле <code>Марка</code></td>
+          </tr>
+          <tr>
+            <td><code>deal.model</code></td>
+            <td>Сделка</td>
+            <td><code>808675</code></td>
+            <td>Поле <code>Модель</code></td>
+          </tr>
+          <tr>
+            <td><code>client.dealerName</code></td>
+            <td>Связанная компания сделки</td>
+            <td>название компании</td>
+            <td>Только для <code>Физ Лицо</code></td>
+          </tr>
+          <tr>
+            <td><code>client.dealerInn</code></td>
+            <td>Связанная компания сделки</td>
+            <td><code>897733</code></td>
+            <td>Только для <code>Физ Лицо</code>, если ИНН заполнен</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>Какие файлы обновлены</h2>
+      <ul>
+        <li><code>avterminal-api/config/amocrm.php</code> — добавлены ID новых полей в конфиг.</li>
+        <li><code>avterminal-api/app/Services/OneC/CounterpartyFlowService.php</code> — расширен сбор payload для 1С.</li>
+        <li><code>avterminal-api/tests/Feature/CounterpartyFlowServicePayloadTest.php</code> — добавлены тесты для физлица и юрлица.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Что проверено</h2>
+      <p>Выполнен локальный запуск теста:</p>
+      <p><code>php artisan test tests/Feature/CounterpartyFlowServicePayloadTest.php</code></p>
+      <ul>
+        <li>Проверен сценарий <code>Физ Лицо</code>: дата договора из контакта, реквизиты автодилера добавляются.</li>
+        <li>Проверен сценарий <code>Юр. лицо</code>: дата договора из компании, поля автодилера не добавляются.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Итог</h2>
+      <p>Сервер обмена готов передавать в 1С расширенный payload по актуальным правилам из amoCRM, не затрагивая текущую очередь, callback и существующую логику dedupe.</p>
+    </section>
+  </div>
+</body>
+</html>
