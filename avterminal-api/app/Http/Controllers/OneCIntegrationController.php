@@ -37,7 +37,7 @@ class OneCIntegrationController extends Controller
                 ], 422);
             }
 
-            if (!$this->isContractStageEvent($context)) {
+            if (!$this->shouldBypassContractStageCheck($context) && !$this->isContractStageEvent($context)) {
                 return response()->json([
                     'status' => 'ignored',
                     'reason' => 'event is not for contract stage',
@@ -304,5 +304,10 @@ class OneCIntegrationController extends Controller
 
         return ((int) $context['pipelineId'] === $expectedPipeline)
             && ((int) $context['statusId'] === $expectedStatus);
+    }
+
+    private function shouldBypassContractStageCheck(array $context): bool
+    {
+        return in_array($context['source'] ?? null, ['json_deal_id', 'amo_button'], true);
     }
 }

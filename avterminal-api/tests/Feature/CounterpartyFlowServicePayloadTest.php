@@ -45,6 +45,8 @@ class CounterpartyFlowServicePayloadTest extends TestCase
                     $this->field(974795, 'Иван'),
                     $this->field(974797, 'Иванович'),
                     $this->field(947713, '2026-04-10'),
+                    $this->field(0, 'ivan@example.com', 'EMAIL', 'Email'),
+                    $this->field(808697, 'г. Владивосток, ул. Светланская, д. 1'),
                 ],
             ],
             company: [
@@ -65,6 +67,8 @@ class CounterpartyFlowServicePayloadTest extends TestCase
         $this->assertSame('Авто-Терминал', $payload['deal']['warehouse']);
         $this->assertSame('Toyota', $payload['deal']['brand']);
         $this->assertSame('Camry', $payload['deal']['model']);
+        $this->assertSame('ivan@example.com', $payload['client']['email']);
+        $this->assertSame('г. Владивосток, ул. Светланская, д. 1', $payload['client']['registrationAddress']);
         $this->assertSame('ООО Ромашка Авто', $payload['client']['dealerName']);
         $this->assertSame('1234567890', $payload['client']['dealerInn']);
     }
@@ -93,6 +97,8 @@ class CounterpartyFlowServicePayloadTest extends TestCase
                     $this->field(919495, '2026-03-15'),
                     $this->field(897733, '9876543210'),
                     $this->field(897735, '123456789'),
+                    $this->field(897747, 'г. Москва, ул. Тверская, д. 10'),
+                    $this->field(0, 'corp@example.com', 'EMAIL', 'Рабочий email'),
                 ],
             ],
         );
@@ -105,7 +111,9 @@ class CounterpartyFlowServicePayloadTest extends TestCase
         $this->assertSame('Lexus', $payload['deal']['brand']);
         $this->assertSame('RX', $payload['deal']['model']);
         $this->assertSame('ООО Импортер', $payload['client']['name']);
+        $this->assertSame('corp@example.com', $payload['client']['email']);
         $this->assertSame('9876543210', $payload['client']['inn']);
+        $this->assertSame('г. Москва, ул. Тверская, д. 10', $payload['client']['legalAddress']);
         $this->assertArrayNotHasKey('dealerName', $payload['client']);
         $this->assertArrayNotHasKey('dealerInn', $payload['client']);
     }
@@ -158,13 +166,23 @@ class CounterpartyFlowServicePayloadTest extends TestCase
         return $method->invoke($service, $leadId, []);
     }
 
-    private function field(int $fieldId, mixed $value): array
+    private function field(int $fieldId, mixed $value, ?string $fieldCode = null, ?string $fieldName = null): array
     {
-        return [
+        $field = [
             'field_id' => $fieldId,
             'values' => [
                 ['value' => $value],
             ],
         ];
+
+        if ($fieldCode !== null) {
+            $field['field_code'] = $fieldCode;
+        }
+
+        if ($fieldName !== null) {
+            $field['field_name'] = $fieldName;
+        }
+
+        return $field;
     }
 }

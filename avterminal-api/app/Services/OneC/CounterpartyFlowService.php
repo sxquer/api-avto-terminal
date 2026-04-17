@@ -356,21 +356,32 @@ class CounterpartyFlowService
             ? [
                 'name' => $companyName,
                 'phone' => $this->extractPhone($companyFields),
+                'email' => $this->extractEmail($companyFields) ?? $this->extractEmail($contactFields),
                 'inn' => (string) ($companyInn ?? ''),
                 'kpp' => (string) ($this->getCustomFieldValueById($companyFields, 897735) ?? ''),
-                'legalAddress' => $this->getCustomFieldValueById($companyFields, 897747),
+                'legalAddress' => $this->extractAddress($companyFields, [897747], [
+                    'юридический адрес',
+                    'юр адрес',
+                    'адрес',
+                ]),
                 'rs' => (string) ($this->getCustomFieldValueById($companyFields, 897751) ?? ''),
                 'bik' => (string) ($this->getCustomFieldValueById($companyFields, 897757) ?? ''),
             ]
             : [
                 'fullName' => $contactFullName,
                 'phone' => $this->extractPhone($contactFields),
+                'email' => $this->extractEmail($contactFields),
                 'passportSeries' => $this->getCustomFieldValueById($contactFields, 895289),
                 'passportNumber' => $this->getCustomFieldValueById($contactFields, 945334),
                 'passportIssuedBy' => $this->getCustomFieldValueById($contactFields, 808693),
                 'passportIssueDate' => $this->getCustomFieldValueById($contactFields, 808757),
                 'passportDepartmentCode' => $this->getCustomFieldValueById($contactFields, 808695),
-                'registrationAddress' => $this->getCustomFieldValueById($contactFields, 808697),
+                'registrationAddress' => $this->extractAddress($contactFields, [808697], [
+                    'адрес регистрации',
+                    'регистрац',
+                    'пропис',
+                    'адрес',
+                ]),
                 'inn' => $this->getCustomFieldValueById($contactFields, 955217),
                 'snils' => $this->getCustomFieldValueById($contactFields, 945706),
                 'dealerName' => $companyName,
@@ -461,6 +472,81 @@ class CounterpartyFlowService
         }
 
         return null;
+    }
+
+    private function extractEmail(array $fields): ?string
+    {
+        return $this->extractFieldValueByCodeOrName(
+            $fields,
+            ['EMAIL'],
+            ['email', 'e-mail', 'электрон', 'эл. почт', 'почта']
+        );
+    }
+
+    private function extractAddress(array $fields, array $fieldIds, array $nameNeedles): ?string
+    {
+        foreach ($fieldIds as $fieldId) {
+            $value = $this->normalizeOptionalString($this->getCustomFieldValueById($fields, $fieldId));
+            if ($value !== null) {
+                return $value;
+            }
+        }
+
+        return $this->extractFieldValueByCodeOrName($fields, ['ADDRESS'], $nameNeedles);
+    }
+
+    private function extractFieldValueByCodeOrName(array $fields, array $fieldCodes, array $nameNeedles): ?string
+    {
+        $normalizedCodes = array_map('mb_strtoupper', $fieldCodes);
+
+        foreach ($fields as $field) {
+            $fieldCode = mb_strtoupper((string) ($field['field_code'] ?? ''), 'UTF-8');
+            $fieldName = mb_strtolower((string) ($field['field_name'] ?? ''), 'UTF-8');
+
+            $matchesCode = $fieldCode !== '' && in_array($fieldCode, $normalizedCodes, true);
+            $matchesName = $fieldName !== '' && $this->fieldNameContainsAny($fieldName, $nameNeedles);
+
+            if (!$matchesCode && !$matchesName) {
+                continue;
+            }
+
+            $value = $this->extractRawFieldValue($field);
+            if ($value !== null) {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    private function extractRawFieldValue(array $field): ?string
+    {
+        $values = $field['values'] ?? [];
+
+        foreach ($values as $valueItem) {
+            if (!is_array($valueItem)) {
+                continue;
+            }
+
+            $value = $valueItem['value'] ?? ($valueItem['enum'] ?? null);
+            $normalizedValue = $this->normalizeOptionalString($value);
+            if ($normalizedValue !== null) {
+                return $normalizedValue;
+            }
+        }
+
+        return null;
+    }
+
+    private function fieldNameContainsAny(string $fieldName, array $needles): bool
+    {
+        foreach ($needles as $needle) {
+            if ($needle !== '' && str_contains($fieldName, mb_strtolower($needle, 'UTF-8'))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function toNullableInt(mixed $value): ?int
