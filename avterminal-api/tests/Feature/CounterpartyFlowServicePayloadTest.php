@@ -47,6 +47,14 @@ class CounterpartyFlowServicePayloadTest extends TestCase
                     $this->field(947713, '2026-04-10'),
                     $this->field(0, 'ivan@example.com', 'EMAIL', 'Email'),
                     $this->field(808697, 'г. Владивосток, ул. Светланская, д. 1'),
+                    $this->field(0, '690066', null, 'Индекс'),
+                    $this->field(0, 'Приморский край', null, 'Субъект федерации'),
+                    $this->field(0, 'Ленинский', null, 'Район'),
+                    $this->field(0, 'Владивосток', null, 'Город'),
+                    $this->field(0, 'пос. Трудовое', null, 'Населенный пункт'),
+                    $this->field(0, 'Светланская', null, 'Улица'),
+                    $this->field(0, '1', null, 'Дом'),
+                    $this->field(0, '12', null, 'Квартира'),
                 ],
             ],
             company: [
@@ -69,6 +77,10 @@ class CounterpartyFlowServicePayloadTest extends TestCase
         $this->assertSame('Camry', $payload['deal']['model']);
         $this->assertSame('ivan@example.com', $payload['client']['email']);
         $this->assertSame('г. Владивосток, ул. Светланская, д. 1', $payload['client']['registrationAddress']);
+        $this->assertSame(
+            '690066, Приморский край, Ленинский, Владивосток, пос. Трудовое, Светланская, 1, 12',
+            $payload['client']['Address']
+        );
         $this->assertSame('ООО Ромашка Авто', $payload['client']['dealerName']);
         $this->assertSame('1234567890', $payload['client']['dealerInn']);
     }

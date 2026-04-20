@@ -382,6 +382,7 @@ class CounterpartyFlowService
                     'пропис',
                     'адрес',
                 ]),
+                'Address' => $this->buildContactAddress($contactFields),
                 'inn' => $this->getCustomFieldValueById($contactFields, 955217),
                 'snils' => $this->getCustomFieldValueById($contactFields, 945706),
                 'dealerName' => $companyName,
@@ -493,6 +494,31 @@ class CounterpartyFlowService
         }
 
         return $this->extractFieldValueByCodeOrName($fields, ['ADDRESS'], $nameNeedles);
+    }
+
+    private function buildContactAddress(array $fields): ?string
+    {
+        $parts = [
+            $this->extractFieldValueByCodeOrName($fields, [], ['индекс']),
+            $this->extractFieldValueByCodeOrName($fields, [], ['субъект федерации']),
+            $this->extractFieldValueByCodeOrName($fields, [], ['район']),
+            $this->extractFieldValueByCodeOrName($fields, [], ['город']),
+            $this->extractFieldValueByCodeOrName($fields, [], ['населенный пункт', 'населённый пункт']),
+            $this->extractFieldValueByCodeOrName($fields, [], ['улица']),
+            $this->extractFieldValueByCodeOrName($fields, [], ['дом']),
+            $this->extractFieldValueByCodeOrName($fields, [], ['квартира']),
+        ];
+
+        $parts = array_values(array_filter(array_map(
+            fn (mixed $value) => $this->normalizeOptionalString($value),
+            $parts
+        )));
+
+        if ($parts === []) {
+            return null;
+        }
+
+        return implode(', ', $parts);
     }
 
     private function extractFieldValueByCodeOrName(array $fields, array $fieldCodes, array $nameNeedles): ?string
