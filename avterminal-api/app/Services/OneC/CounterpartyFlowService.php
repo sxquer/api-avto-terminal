@@ -382,7 +382,7 @@ class CounterpartyFlowService
                     'пропис',
                     'адрес',
                 ]),
-                'Address' => $this->buildContactAddress($contactFields),
+                'address' => $this->buildContactAddress($contactFields),
                 'inn' => $this->getCustomFieldValueById($contactFields, 955217),
                 'snils' => $this->getCustomFieldValueById($contactFields, 945706),
                 'dealerName' => $companyName,

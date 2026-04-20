@@ -79,7 +79,7 @@ class CounterpartyFlowServicePayloadTest extends TestCase
         $this->assertSame('г. Владивосток, ул. Светланская, д. 1', $payload['client']['registrationAddress']);
         $this->assertSame(
             '690066, Приморский край, Ленинский, Владивосток, пос. Трудовое, Светланская, 1, 12',
-            $payload['client']['Address']
+            $payload['client']['address']
         );
         $this->assertSame('ООО Ромашка Авто', $payload['client']['dealerName']);
         $this->assertSame('1234567890', $payload['client']['dealerInn']);
