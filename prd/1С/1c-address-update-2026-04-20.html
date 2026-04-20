@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Изменения по адресу в payload 1С — 20 апреля 2026</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #52607a;
+      --line: #d6dfeb;
+      --brand: #1d4ed8;
+      --brand-soft: #e8f0ff;
+      --ok: #0f766e;
+      --warn: #b45309;
+      --inline-code-bg: #e5edf9;
+      --inline-code-border: #bfd0ea;
+      --inline-code-text: #0f2747;
+      --code-bg: #0b1020;
+      --code-text: #d6deeb;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background: linear-gradient(180deg, #f7f9fc 0%, #eef3f9 100%);
+      color: var(--text);
+      line-height: 1.55;
+    }
+
+    .wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 18px 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 8px 30px rgba(15, 23, 42, 0.04);
+    }
+
+    h1, h2, h3 {
+      margin: 0 0 10px;
+      line-height: 1.25;
+    }
+
+    h1 { font-size: 30px; }
+    h2 { font-size: 22px; margin-top: 4px; }
+    h3 { font-size: 18px; }
+
+    p { margin: 8px 0; }
+    ul { margin: 8px 0 8px 22px; }
+    li { margin: 6px 0; }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .badge {
+      display: inline-block;
+      margin-right: 8px;
+      margin-bottom: 6px;
+      padding: 5px 10px;
+      border: 1px solid #bfd2ff;
+      border-radius: 999px;
+      background: var(--brand-soft);
+      color: #1e3a8a;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .ok {
+      color: var(--ok);
+      font-weight: 700;
+    }
+
+    .warn {
+      color: var(--warn);
+      font-weight: 700;
+    }
+
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+    }
+
+    code {
+      background: var(--inline-code-bg);
+      border: 1px solid var(--inline-code-border);
+      border-radius: 6px;
+      color: var(--inline-code-text);
+      padding: 2px 6px;
+      font-size: 14px;
+      font-weight: 600;
+      overflow-wrap: anywhere;
+    }
+
+    pre {
+      margin: 10px 0 0;
+      padding: 14px;
+      border-radius: 12px;
+      background: var(--code-bg);
+      color: var(--code-text);
+      overflow: auto;
+      white-space: pre;
+      line-height: 1.4;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+
+    th, td {
+      border: 1px solid var(--line);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f5f8fc;
+      font-weight: 700;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .flow {
+      border: 1px dashed #a7b2c3;
+      border-radius: 12px;
+      background: #fbfcfe;
+      padding: 12px;
+      white-space: pre-wrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.45;
+      overflow: auto;
+    }
+
+    @media (max-width: 900px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="card">
+      <h1>Изменения по адресу в payload для 1С</h1>
+      <p class="muted">Дата: <b>20 апреля 2026</b>. Проект: <code>avterminal-api</code>. Поток: <code>amoCRM → 1С</code>.</p>
+      <div>
+        <span class="badge">payload update</span>
+        <span class="badge">address field</span>
+        <span class="badge">1C integration</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>1. Что поменяли сегодня</h2>
+      <p>В payload для физлица поле полного адреса переименовано из <code>Address</code> в <code>address</code>.</p>
+      <ul>
+        <li>Причина: привести имя поля к тому же стилю, что и остальные поля payload.</li>
+        <li>Было: поле выбивалось из общего формата, потому что начиналось с заглавной буквы.</li>
+        <li>Стало: теперь используется строчное имя <code>address</code>.</li>
+      </ul>
+      <p class="ok">Итог: payload стал консистентным, а адресное поле теперь называется так же предсказуемо, как <code>email</code>, <code>inn</code>, <code>snils</code> и остальные ключи.</p>
+    </section>
+
+    <section class="card">
+      <h2>2. Было → стало</h2>
+      <div class="grid">
+        <div>
+          <h3 class="warn">Было</h3>
+          <pre><code>{
+  "clientType": "individual",
+  "client": {
+    "registrationAddress": "г. Владивосток, ул. Светланская, д. 1",
+    "Address": "690066, Приморский край, Ленинский, Владивосток, пос. Трудовое, Светланская, 1, 12"
+  }
+}</code></pre>
+        </div>
+        <div>
+          <h3 class="ok">Стало</h3>
+          <pre><code>{
+  "clientType": "individual",
+  "client": {
+    "registrationAddress": "г. Владивосток, ул. Светланская, д. 1",
+    "address": "690066, Приморский край, Ленинский, Владивосток, пос. Трудовое, Светланская, 1, 12"
+  }
+}</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>3. Почему адресов два</h2>
+      <p>В payload для физлица сейчас участвуют <b>два разных адресных поля</b>. Они не дублируют друг друга и нужны для разных задач.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Поле в payload</th>
+            <th>Что означает</th>
+            <th>Откуда берется</th>
+            <th>Как выглядит</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>registrationAddress</code></td>
+            <td>Адрес регистрации одной строкой</td>
+            <td>Из отдельного поля amoCRM, в первую очередь по <code>field_id=808697</code>, дальше через поиск по названию поля и коду <code>ADDRESS</code></td>
+            <td><code>г. Владивосток, ул. Светланская, д. 1</code></td>
+          </tr>
+          <tr>
+            <td><code>address</code></td>
+            <td>Полный составной адрес из деталей контакта</td>
+            <td>Собирается вручную из нескольких полей: индекс, субъект, район, город, населенный пункт, улица, дом, квартира</td>
+            <td><code>690066, Приморский край, Ленинский, Владивосток, пос. Трудовое, Светланская, 1, 12</code></td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="muted">Коротко: <code>registrationAddress</code> — это готовая строка адреса регистрации. <code>address</code> — это более полный адрес, который API конструирует из адресных компонентов контакта.</p>
+    </section>
+
+    <section class="card">
+      <h2>4. Как формируется поле <code>address</code></h2>
+      <p>Поле <code>address</code> строится только для физлица и собирается по частям в коде метода <code>buildContactAddress()</code>.</p>
+      <div class="flow">address =
+  индекс
+  + субъект федерации
+  + район
+  + город
+  + населенный пункт
+  + улица
+  + дом
+  + квартира
+
+Дальше:
+1. из каждого поля берется значение;
+2. пустые и null-значения отбрасываются;
+3. оставшиеся части склеиваются через ", ".</div>
+      <p>Это значит, что:</p>
+      <ul>
+        <li>если часть адреса не заполнена, она просто не попадет в строку;</li>
+        <li>лишние запятые не появятся, потому что пустые элементы удаляются до склейки;</li>
+        <li>если не заполнено вообще ничего, поле <code>address</code> вернется как <code>null</code>.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>5. Как формируется <code>registrationAddress</code></h2>
+      <p>Поле <code>registrationAddress</code> собирается по другому правилу. Здесь API сначала пытается взять уже готовое значение из выделенного кастомного поля amoCRM.</p>
+      <ul>
+        <li>Приоритет 1: поле с <code>field_id=808697</code>.</li>
+        <li>Приоритет 2: поиск по названиям вроде <code>адрес регистрации</code>, <code>регистрац</code>, <code>пропис</code>, <code>адрес</code>.</li>
+        <li>Приоритет 3: fallback через поле с кодом <code>ADDRESS</code>.</li>
+      </ul>
+      <p>Иными словами, <code>registrationAddress</code> не собирается по кускам. Это попытка взять уже существующий адрес регистрации в готовом текстовом виде.</p>
+    </section>
+
+    <section class="card">
+      <h2>6. Почему это важно для 1С</h2>
+      <ul>
+        <li><code>registrationAddress</code> удобно использовать как адрес прописки, если 1С ожидает именно регистрационный адрес одной строкой.</li>
+        <li><code>address</code> полезен там, где нужен максимально полный почтовый или фактический адрес из составных реквизитов контакта.</li>
+        <li>Наличие двух полей позволяет не терять ни "официальный" адрес регистрации, ни детализированный адрес из адресных компонентов.</li>
+      </ul>
+      <p class="warn">Важно: после сегодняшнего обновления интеграции 1С нужно читать поле <code>client.address</code>, а не <code>client.Address</code>.</p>
+    </section>
+
+    <section class="card">
+      <h2>7. Рекомендуемый пример payload для физлица</h2>
+      <pre><code>{
+  "clientType": "individual",
+  "client": {
+    "fullName": "Иванов Иван Иванович",
+    "phone": "+79990001122",
+    "email": "ivan@example.com",
+    "passportSeries": "0505",
+    "passportNumber": "123456",
+    "passportIssuedBy": "УМВД России",
+    "passportIssueDate": "2026-04-10",
+    "passportDepartmentCode": "250-001",
+    "registrationAddress": "г. Владивосток, ул. Светланская, д. 1",
+    "address": "690066, Приморский край, Ленинский, Владивосток, пос. Трудовое, Светланская, 1, 12",
+    "inn": "123456789012",
+    "snils": "123-456-789 00",
+    "dealerName": "ООО Ромашка Авто",
+    "dealerInn": "1234567890"
+  }
+}</code></pre>
+      <p class="muted">В этом примере <code>registrationAddress</code> и <code>address</code> намеренно разные: первое поле хранит адрес регистрации как готовую строку, второе — полный адрес из составных частей.</p>
+    </section>
+  </main>
+</body>
+</html>
