@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Лог изменений интеграции 1С — 30 марта 2026</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #4b5563;
+      --line: #dbe2ea;
+      --good: #0f766e;
+      --warn: #b45309;
+      --code-bg: #0b1020;
+      --code-text: #d1d5db;
+      --link: #1d4ed8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .wrap {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    h1, h2, h3 {
+      margin: 0 0 10px;
+      line-height: 1.25;
+    }
+    h1 { font-size: 28px; }
+    h2 { font-size: 22px; margin-top: 6px; }
+    h3 { font-size: 18px; }
+    p { margin: 8px 0; }
+    ul { margin: 8px 0 8px 20px; }
+    li { margin: 6px 0; }
+    .muted { color: var(--muted); }
+    .tag {
+      display: inline-block;
+      border-radius: 8px;
+      padding: 4px 8px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-right: 6px;
+      margin-bottom: 6px;
+      border: 1px solid var(--line);
+      background: #f9fafb;
+    }
+    .good { color: var(--good); font-weight: 700; }
+    .warn { color: var(--warn); font-weight: 700; }
+    pre {
+      margin: 10px 0 0;
+      padding: 12px;
+      border-radius: 10px;
+      background: var(--code-bg);
+      color: var(--code-text);
+      overflow: auto;
+      white-space: pre;
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+    }
+    a { color: var(--link); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="card">
+      <h1>Лог изменений интеграции 1С</h1>
+      <p class="muted">Дата изменений: <b>30 марта 2026</b>. Проект: <code>avterminal-api</code>.</p>
+      <div>
+        <span class="tag">amoCRM → 1С</span>
+        <span class="tag">debug endpoints</span>
+        <span class="tag">payload fix</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>1) Что исправили в формате payload для 1С</h2>
+      <p>Проблема: в ряде случаев в очереди для 1С уходил <code>clientType=legal</code>, но компания была пустой:</p>
+      <ul>
+        <li><code>client.name = null</code></li>
+        <li><code>client.inn = ""</code></li>
+        <li><code>_meta.companyId = null</code></li>
+      </ul>
+      <p>Причина: при сборке payload информация о компании не всегда подтягивалась из API-связи сделки.</p>
+      <p class="good">Исправление: добавлен fallback на входящий webhook payload от amoCRM (<code>lead/contact/company</code>), включая поддержку legacy-структуры <code>custom_fields</code>.</p>
+    </section>
+
+    <section class="card">
+      <h3>Было → Стало (пример legal-клиента)</h3>
+      <div class="grid">
+        <div>
+          <p class="warn">Было (до фикса):</p>
+          <pre><code>{
+  "clientType": "legal",
+  "client": {
+    "name": null,
+    "phone": null,
+    "inn": "",
+    "kpp": "",
+    "legalAddress": null,
+    "rs": "",
+    "bik": ""
+  },
+  "_meta": {
+    "contactId": 29639483,
+    "companyId": null
+  }
+}</code></pre>
+        </div>
+        <div>
+          <p class="good">Стало (после фикса):</p>
+          <pre><code>{
+  "clientType": "legal",
+  "client": {
+    "name": "Тестовая компания 2",
+    "phone": null,
+    "inn": "22223333",
+    "kpp": "123123",
+    "legalAddress": "ur1",
+    "rs": "1",
+    "bik": "3"
+  },
+  "_meta": {
+    "contactId": 29639483,
+    "companyId": 29639633
+  }
+}</code></pre>
+        </div>
+      </div>
+      <p class="muted">Дополнительно: извлечение телефона расширено — теперь берется не только по <code>field_code=PHONE</code>, но и по имени поля (например, «Телефон» / «phone»).</p>
+    </section>
+
+    <section class="card">
+      <h2>2) Два тестовых метода (без авторизации)</h2>
+      <p>Оба метода доступны без <code>auth:sanctum</code>, как и <code>/api/amocrm/logs</code>.</p>
+
+      <h3>2.1 Последние статусы очереди</h3>
+      <p><code>GET /api/amocrm/integrations/1c/debug/statuses?limit=5</code></p>
+      <ul>
+        <li>Возвращает последние записи таблицы <code>onec_counterparty_buffers</code> (по умолчанию 5, максимум 50).</li>
+        <li>Для каждой записи добавляет готовую ссылку <code>pullByRequestUrl</code> на второй debug-метод.</li>
+      </ul>
+      <pre><code>{
+  "count": 5,
+  "items": [
+    {
+      "requestId": "req_jrivmeh6gwib",
+      "status": "pending",
+      "pullByRequestUrl": "http://api-avto-terminal.ru/api/amocrm/integrations/1c/debug/pull-by-request?requestId=req_jrivmeh6gwib"
+    }
+  ]
+}</code></pre>
+
+      <h3>2.2 Pull по requestId (показать, что реально уходит в 1С)</h3>
+      <p><code>GET /api/amocrm/integrations/1c/debug/pull-by-request?requestId=...</code></p>
+      <ul>
+        <li>Возвращает фактический <code>payload</code>, который выдается 1С.</li>
+        <li>Если запись была в <code>pending</code>, метод переводит ее в <code>pulled</code>, увеличивает <code>pullAttempts</code> и пишет <code>pulled</code>-event.</li>
+        <li>Если запись уже не <code>pending</code>, просто возвращает текущий статус и payload.</li>
+      </ul>
+      <pre><code>{
+  "requestId": "req_jrivmeh6gwib",
+  "previousStatus": "pending",
+  "currentStatus": "pulled",
+  "wasPulledNow": true,
+  "pullAttempts": 1,
+  "payload": {
+    "...": "фактические данные для 1С"
+  }
+}</code></pre>
+    </section>
+
+    <section class="card">
+      <h2>3) Быстрые ссылки для проверки</h2>
+      <ul>
+        <li><a href="http://api-avto-terminal.ru/api/amocrm/integrations/1c/debug/statuses?limit=5" target="_blank" rel="noopener">GET debug/statuses?limit=5</a></li>
+        <li><code>GET /api/amocrm/integrations/1c/debug/pull-by-request?requestId=REQ_ID</code></li>
+        <li><a href="http://api-avto-terminal.ru/api/amocrm/logs?limit=20" target="_blank" rel="noopener">GET amocrm/logs?limit=20</a></li>
+      </ul>
+      <p class="muted">Примечание: <code>pull-by-request</code> меняет состояние очереди для <code>pending</code>-записей (это диагностический pull, а не read-only просмотр).</p>
+    </section>
+  </main>
+</body>
+</html>

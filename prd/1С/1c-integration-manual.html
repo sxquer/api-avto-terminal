@@ -1,0 +1,980 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Мануал по интеграции с 1С (amoCRM ↔ avterminal-api)</title>
+  <style>
+    :root {
+      --bg: #f6f7fb;
+      --panel: #ffffff;
+      --text: #111827;
+      --muted: #4b5563;
+      --line: #d9dde7;
+      --brand: #0f4c81;
+      --brand-soft: #e7f0fb;
+      --ok: #0f766e;
+      --warn: #a16207;
+      --bad: #b91c1c;
+      --code-bg: #0b1020;
+      --code-text: #d1d5db;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "SF Pro Text", -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+      color: var(--text);
+      background: linear-gradient(180deg, #f8f9fc 0%, #eef2f8 100%);
+      line-height: 1.5;
+    }
+
+    .wrap {
+      display: grid;
+      grid-template-columns: 310px minmax(0, 1fr);
+      gap: 16px;
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    .toc {
+      position: sticky;
+      top: 12px;
+      align-self: start;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      max-height: calc(100vh - 24px);
+      overflow: auto;
+    }
+
+    .toc h2 {
+      margin: 0 0 8px;
+      font-size: 18px;
+      line-height: 1.2;
+    }
+
+    .toc p {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .toc a {
+      display: block;
+      text-decoration: none;
+      color: #1f2937;
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 13px;
+      margin-bottom: 2px;
+    }
+
+    .toc a:hover { background: #eef2ff; }
+    .toc .sub { padding-left: 20px; font-size: 12px; color: #374151; }
+
+    .main {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 20px 24px;
+      min-width: 0;
+    }
+
+    .top {
+      border: 1px solid #dbeafe;
+      background: #f8fbff;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1.15;
+    }
+
+    h2 {
+      margin: 24px 0 10px;
+      font-size: 24px;
+      line-height: 1.2;
+      scroll-margin-top: 12px;
+    }
+
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 18px;
+      line-height: 1.25;
+      scroll-margin-top: 12px;
+    }
+
+    p { margin: 8px 0; }
+    ul, ol { margin: 8px 0; padding-left: 22px; }
+    li { margin: 5px 0; }
+
+    .meta {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .badge {
+      display: inline-block;
+      border: 1px solid #bfdbfe;
+      background: var(--brand-soft);
+      color: #1e3a8a;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      margin-right: 8px;
+      margin-bottom: 6px;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: #fff;
+      margin: 10px 0;
+    }
+
+    .panel.ok { border-color: #99f6e4; background: #f0fdfa; }
+    .panel.warn { border-color: #fde68a; background: #fffbeb; }
+    .panel.bad { border-color: #fecaca; background: #fef2f2; }
+
+    .muted { color: var(--muted); }
+
+    .flow {
+      border: 1px dashed #9ca3af;
+      border-radius: 10px;
+      padding: 10px;
+      overflow: auto;
+      background: #fafafa;
+      font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 13px;
+      white-space: pre;
+      line-height: 1.35;
+    }
+
+    code, pre {
+      font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 13px;
+    }
+
+    code {
+      background: #eef2f7;
+      border: 1px solid #dde3ef;
+      border-radius: 6px;
+      padding: 1px 5px;
+    }
+
+    pre {
+      margin: 8px 0;
+      padding: 12px;
+      border-radius: 10px;
+      background: var(--code-bg);
+      color: var(--code-text);
+      overflow: auto;
+      white-space: pre;
+      line-height: 1.35;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+      font-size: 14px;
+    }
+
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px 9px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      background: #f3f6fb;
+      font-weight: 600;
+    }
+
+    .small { font-size: 12px; }
+
+    @media (max-width: 1080px) {
+      .wrap { grid-template-columns: 1fr; }
+      .toc {
+        position: static;
+        max-height: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <aside class="toc">
+      <h2>Оглавление</h2>
+      <p>Быстрая навигация по разделам</p>
+      <a href="#s-0">0. Что это за документ</a>
+      <a href="#s-1">1. Архитектура и границы</a>
+      <a class="sub" href="#s-1-1">1.1 Реально работающий поток</a>
+      <a class="sub" href="#s-1-2">1.2 Что пока не реализовано</a>
+      <a href="#s-2">2. Endpoint-ы и авторизация</a>
+      <a href="#s-3">3. Поток A: contract-ready (amoCRM → буфер)</a>
+      <a class="sub" href="#s-3-1">3.1 Форматы входного payload</a>
+      <a class="sub" href="#s-3-2">3.2 Фильтр по стадии "Договор"</a>
+      <a class="sub" href="#s-3-3">3.3 Сбор payload из amoCRM</a>
+      <a class="sub" href="#s-3-4">3.4 Алгоритм дедупликации</a>
+      <a class="sub" href="#s-3-5">3.5 Что пишется в БД и комментарии</a>
+      <a href="#s-4">4. Поток A: pending (1С забирает пакеты)</a>
+      <a href="#s-5">5. Поток A: result callback (1С → API)</a>
+      <a href="#s-6">6. Полная карта полей</a>
+      <a href="#s-7">7. Модель данных (таблицы БД)</a>
+      <a href="#s-8">8. Логирование и наблюдаемость</a>
+      <a href="#s-9">9. Пошаговое E2E-тестирование</a>
+      <a class="sub" href="#s-9-1">9.1 Быстрый тест через 1c-mock</a>
+      <a class="sub" href="#s-9-2">9.2 Ручные curl-сценарии</a>
+      <a class="sub" href="#s-9-3">9.3 Матрица тест-кейсов</a>
+      <a href="#s-10">10. Частые причины проблем</a>
+      <a href="#s-11">11. Шаблон обратной связи</a>
+      <a href="#s-12">12. Чеклист готовности к прод</a>
+    </aside>
+
+    <main class="main">
+      <section class="top">
+        <h1>Суперподробный мануал по интеграции с 1С</h1>
+        <p>Проект: <b>avterminal-api</b>, поток интеграции контрагентов <b>amoCRM ↔ 1С</b>.</p>
+        <p class="meta">
+          <span class="badge">Актуально по коду: март 2026</span>
+          <span class="badge">Маршруты: <code>/api/*</code> (без <code>/api/v1</code>)</span>
+          <span class="badge">Модель обмена: Buffer + Pull + Callback</span>
+        </p>
+      </section>
+
+      <section id="s-0">
+        <h2>0. Что это за документ</h2>
+        <p>Это практический мануал для человека, который не в контексте проекта. Он отвечает на три вопроса:</p>
+        <ol>
+          <li>Как интеграция работает по шагам (включая алгоритмы и статусы).</li>
+          <li>Какие именно поля и откуда берутся.</li>
+          <li>Как воспроизвести и протестировать работу end-to-end, чтобы дать предметную обратную связь.</li>
+        </ol>
+        <div class="panel warn">
+          <b>Важно:</b> документ отражает <b>фактическую реализацию в коде</b>. Если что-то расходится с ранними ТЗ/планами, ориентируйтесь на этот мануал и текущий код.
+        </div>
+      </section>
+
+      <section id="s-1">
+        <h2>1. Архитектура и границы</h2>
+
+        <section id="s-1-1">
+          <h3>1.1 Реально работающий поток</h3>
+          <p>Сейчас реализован поток A: <b>передача данных контрагента из amoCRM в 1С через буфер</b>:</p>
+          <div class="flow">amoCRM событие (стадия "Договор") / ручной триггер
+                │
+                ▼
+POST /api/amocrm/deals/contract-ready?secret=...
+                │
+                ▼
+Сбор данных сделки+контакта/компании в payload
+                │
+                ▼
+Запись в onec_counterparty_buffers (status=pending)
+                │
+                ▼
+1С периодически делает GET /api/amocrm/integrations/1c/contacts/pending
+                │
+                ▼
+Запись помечается как pulled
+                │
+                ▼
+1С обрабатывает и шлет POST /api/amocrm/integrations/1c/contacts/result
+                │
+                ▼
+Запись получает status=processed/error
+(+ при успехе пишется 1cId в кастомное поле лида amoCRM)</div>
+        </section>
+
+        <section id="s-1-2">
+          <h3>1.2 Что пока не реализовано</h3>
+          <ul>
+            <li>Отдельный webhook оплаты <code>/integrations/1c/payments/webhook</code> в коде отсутствует.</li>
+            <li>Массовый callback (массив объектов) в <code>/contacts/result</code> не поддерживается, только одиночный объект.</li>
+          </ul>
+        </section>
+      </section>
+
+      <section id="s-2">
+        <h2>2. Endpoint-ы и авторизация</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Метод</th>
+              <th>URL</th>
+              <th>Кто вызывает</th>
+              <th>Авторизация</th>
+              <th>Назначение</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>POST</td>
+              <td><code>/api/amocrm/deals/contract-ready</code></td>
+              <td>amoCRM webhook / кнопка / интеграционный вызов</td>
+              <td>Webhook secret: query/header/body</td>
+              <td>Ставит сделку в буфер на обработку 1С</td>
+            </tr>
+            <tr>
+              <td>GET</td>
+              <td><code>/api/amocrm/integrations/1c/contacts/pending</code></td>
+              <td>1С</td>
+              <td>Bearer Sanctum token</td>
+              <td>Забор pending-пакетов</td>
+            </tr>
+            <tr>
+              <td>POST</td>
+              <td><code>/api/amocrm/integrations/1c/contacts/result</code></td>
+              <td>1С</td>
+              <td>Bearer Sanctum token</td>
+              <td>Результат обработки пакета в 1С</td>
+            </tr>
+            <tr>
+              <td>GET</td>
+              <td><code>/api/amocrm/logs?limit=100</code></td>
+              <td>Тестировщик / разработчик</td>
+              <td>Нет</td>
+              <td>HTML-просмотр входящих запросов и ответов</td>
+            </tr>
+            <tr>
+              <td>POST</td>
+              <td><code>/api/setup-test-user</code></td>
+              <td>Тестировщик</td>
+              <td>Нет</td>
+              <td>Создает тест-пользователя и возвращает Sanctum token</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Секрет для contract-ready</h3>
+        <p>Секрет хранится в <code>ONEC_AMO_WEBHOOK_SECRET</code>.</p>
+        <p>Сервис принимает его из любого источника (по приоритету):</p>
+        <ol>
+          <li><code>secret</code> в body (<code>$request->input('secret')</code>).</li>
+          <li><code>secret</code> в query.</li>
+          <li>header <code>X-Amo-Webhook-Secret</code>.</li>
+          <li>header <code>X-Webhook-Secret</code>.</li>
+        </ol>
+        <div class="panel bad">
+          Если secret не задан в конфиге, <code>contract-ready</code> вернет <code>500</code> с ошибкой "Webhook secret is not configured".
+        </div>
+      </section>
+
+      <section id="s-3">
+        <h2>3. Поток A: contract-ready (amoCRM → буфер)</h2>
+
+        <section id="s-3-1">
+          <h3>3.1 Форматы входного payload</h3>
+          <p>Метод принимает 3 формата (выявляются автоматически):</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Источник</th>
+                <th>Минимальный фрагмент</th>
+                <th>source в ответе</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>JSON интеграции</td>
+                <td><code>{"dealId": 123456}</code></td>
+                <td><code>json_deal_id</code></td>
+              </tr>
+              <tr>
+                <td>amoCRM кнопка</td>
+                <td><code>{"lead":{"id":123456,"pipeline_id":...,"status_id":...}}</code></td>
+                <td><code>amo_button</code></td>
+              </tr>
+              <tr>
+                <td>amoCRM status webhook</td>
+                <td><code>{"leads":{"status":[{"id":123456,"pipeline_id":...,"status_id":...}]}}</code></td>
+                <td><code>amo_status_webhook</code></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="panel warn">
+            При одновременном наличии нескольких форматов "побеждает" последний проверенный в коде (<code>leads.status[0]</code>).
+          </div>
+        </section>
+
+        <section id="s-3-2">
+          <h3>3.2 Фильтр по стадии "Договор"</h3>
+          <p>Проверяются <code>pipeline_id</code> и <code>status_id</code> события.</p>
+          <ul>
+            <li>Ожидаемые значения берутся из <code>config('amocrm.onec.*')</code>.</li>
+            <li>По умолчанию: <code>pipeline=7523034</code>, <code>status=62360726</code>.</li>
+            <li>Если <code>pipeline_id/status_id</code> не пришли, событие <b>не блокируется</b> и обработка продолжается.</li>
+            <li>Если пришли, но не совпали, возвращается <code>200</code> и <code>{"status":"ignored","reason":"event is not for contract stage"}</code>.</li>
+          </ul>
+        </section>
+
+        <section id="s-3-3">
+          <h3>3.3 Сбор payload из amoCRM</h3>
+          <p>Сервис <code>CounterpartyFlowService::buildPayloadFromLead()</code> делает:</p>
+          <ol>
+            <li>Запрашивает лид по <code>leadId</code> с расширениями <code>contacts</code>, <code>companies</code>.</li>
+            <li>Берет первый контакт/компанию, если они привязаны.</li>
+            <li>Считывает custom fields по фиксированным ID.</li>
+            <li>Определяет тип клиента:
+              <ul>
+                <li>если в поле типа клиента есть подстрока "юр" → <code>clientType=legal</code>,</li>
+                <li>иначе <code>clientType=individual</code>.</li>
+              </ul>
+            </li>
+            <li>Собирает финальный payload и позже добавляет в него <code>requestId</code>.</li>
+          </ol>
+
+          <p>Формат payload в буфере/выдаче <code>pending</code>:</p>
+          <pre>{
+  "vin": "XTA210...",
+  "dealId": 25147637,
+  "clientType": "individual | legal",
+  "clientTypeRaw": "сырой текст поля из amoCRM",
+  "client": { "... зависит от clientType ..." },
+  "deal": {
+    "dealNumber": "25147637"
+  },
+  "_meta": {
+    "contactId": 29639483,
+    "companyId": 29639633
+  },
+  "requestId": "req_ab12cd34ef56"
+}</pre>
+        </section>
+
+        <section id="s-3-4">
+          <h3>3.4 Алгоритм дедупликации</h3>
+          <p>Дедупликация выполняется <b>только</b> по паре <code>(lead_id, payload_hash)</code>.</p>
+          <ol>
+            <li>Считается <code>payload_hash = sha256(json(payload_without_requestId))</code>.</li>
+            <li>В таблице ищется любая запись этой сделки с таким hash (даже если она уже <code>processed</code> или <code>error</code>).</li>
+            <li>Если найдена:
+              <ul>
+                <li>новая запись не создается,</li>
+                <li>возвращается <code>{"status":"already_buffered","requestId":"..."}</code>,</li>
+                <li>в сделку добавляется сервисный комментарий.</li>
+              </ul>
+            </li>
+            <li>Если не найдена:
+              <ul>
+                <li>генерируется новый <code>requestId</code> вида <code>req_ + 12 random chars</code>,</li>
+                <li>создается запись <code>pending</code> в буфере,</li>
+                <li>создается sync event <code>enqueued</code>.</li>
+              </ul>
+            </li>
+          </ol>
+
+          <div class="panel ok">
+            <b>Ключевой эффект:</b> если данные в карточке изменились (и hash изменился), создается новый пакет, даже когда старый еще в <code>pending/pulled</code>.
+          </div>
+        </section>
+
+        <section id="s-3-5">
+          <h3>3.5 Что пишется в БД и комментарии</h3>
+          <p>При новой записи:</p>
+          <ul>
+            <li><code>onec_counterparty_buffers.status = pending</code></li>
+            <li>sync event: <code>event_type=enqueued</code>, <code>attempt_no=1</code>, <code>result=success</code></li>
+            <li>в лид amoCRM добавляется заметка:
+              <code>[1C] Контрагент поставлен в буфер. requestId=..., vin=..., clientType=...</code></li>
+          </ul>
+          <p>При dedupe:</p>
+          <ul>
+            <li>новая запись не создается;</li>
+            <li>добавляется заметка:
+              <code>[1C] Повторный запрос: идентичные данные уже есть в буфере/истории...</code></li>
+          </ul>
+        </section>
+      </section>
+
+      <section id="s-4">
+        <h2>4. Поток A: pending (1С забирает пакеты)</h2>
+        <p><code>GET /api/amocrm/integrations/1c/contacts/pending?limit=50</code></p>
+        <h3>Правила</h3>
+        <ul>
+          <li><code>limit</code> необязательный, по умолчанию <code>50</code>, диапазон <code>1..200</code>.</li>
+          <li>Выбираются записи только со статусом <code>pending</code>, сортировка по <code>id ASC</code>.</li>
+          <li>Каждая выданная запись сразу обновляется:
+            <code>status=pulled</code>, <code>pull_attempts += 1</code>, <code>pulled_at=now()</code>.</li>
+          <li>На каждую выданную запись создается sync event <code>pulled</code>.</li>
+        </ul>
+
+        <h3>Формат ответа</h3>
+        <pre>{
+  "count": 2,
+  "items": [
+    { "...payload #1..." },
+    { "...payload #2..." }
+  ]
+}</pre>
+
+        <div class="panel warn">
+          Если 1С забрала запись, но не отправила <code>result</code>, запись останется в <code>pulled</code> и сама в <code>pending</code> не вернется.
+        </div>
+      </section>
+
+      <section id="s-5">
+        <h2>5. Поток A: result callback (1С → API)</h2>
+        <p><code>POST /api/amocrm/integrations/1c/contacts/result</code></p>
+
+        <h3>Входная валидация</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Поле</th>
+              <th>Обязательно</th>
+              <th>Правило</th>
+              <th>Комментарий</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>requestId</code></td>
+              <td>Да</td>
+              <td>string</td>
+              <td>Ключ связи с буфером</td>
+            </tr>
+            <tr>
+              <td><code>status</code></td>
+              <td>Да</td>
+              <td><code>created|found|error</code></td>
+              <td>Итог обработки в 1С</td>
+            </tr>
+            <tr>
+              <td><code>1cId</code></td>
+              <td>Нет</td>
+              <td>string</td>
+              <td>Для success-сценариев желательно передавать</td>
+            </tr>
+            <tr>
+              <td><code>1cID</code>, <code>1cid</code></td>
+              <td>Нет</td>
+              <td>string</td>
+              <td>Legacy-алиасы, будут нормализованы в <code>1cId</code></td>
+            </tr>
+            <tr>
+              <td><code>processedAt</code></td>
+              <td>Нет</td>
+              <td>string</td>
+              <td>Парсится через Carbon; лучше ISO-8601 с timezone</td>
+            </tr>
+            <tr>
+              <td><code>vin</code></td>
+              <td>Нет</td>
+              <td>string</td>
+              <td>Хранится только в payload callback-лога, на матчинг не влияет</td>
+            </tr>
+            <tr>
+              <td><code>error</code></td>
+              <td>Нет</td>
+              <td>string</td>
+              <td>Текст ошибки для <code>status=error</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Что делает обработчик</h3>
+        <ol>
+          <li>Ищет запись буфера по <code>request_id</code>. Если не нашел: <code>404 requestId not found</code>.</li>
+          <li>Определяет успех: <code>status in [created, found]</code>.</li>
+          <li>Обновляет буфер:
+            <ul>
+              <li>успех → <code>status=processed</code>,</li>
+              <li>ошибка → <code>status=error</code>,</li>
+              <li>пишет <code>onec_counterparty_id</code>, <code>onec_processing_status</code>, <code>last_error</code>, <code>processed_at</code>.</li>
+            </ul>
+          </li>
+          <li>Создает sync event <code>callback</code>.</li>
+          <li>Если успех и есть <code>1cId</code>: обновляет кастомное поле лида <code>onec_counterparty_id</code> (ID <code>986431</code>).</li>
+          <li>Пишет комментарий в лид с деталями callback.</li>
+        </ol>
+
+        <h3>Пример callback success</h3>
+        <pre>{
+  "requestId": "req_jvqa7tml46vk",
+  "status": "created",
+  "1cId": "1c_ctr_987654",
+  "processedAt": "2026-03-20T14:25:00+10:00"
+}</pre>
+
+        <h3>Пример callback error</h3>
+        <pre>{
+  "requestId": "req_jvqa7tml46vk",
+  "status": "error",
+  "error": "ИНН не прошел проверку в 1С"
+}</pre>
+      </section>
+
+      <section id="s-6">
+        <h2>6. Полная карта полей</h2>
+
+        <h3>6.1 Поля amoCRM, из которых строится payload</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Сущность</th>
+              <th>Поле</th>
+              <th>ID / code</th>
+              <th>Куда в payload</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Lead</td><td>VIN</td><td><code>808681</code></td><td><code>vin</code></td></tr>
+            <tr><td>Lead</td><td>Тип клиента (сырой)</td><td><code>917427</code></td><td><code>clientTypeRaw</code>, влияет на <code>clientType</code></td></tr>
+            <tr><td>Contact</td><td>Фамилия</td><td><code>974793</code></td><td><code>client.fullName</code> (часть)</td></tr>
+            <tr><td>Contact</td><td>Имя</td><td><code>974795</code></td><td><code>client.fullName</code> (часть)</td></tr>
+            <tr><td>Contact</td><td>Отчество</td><td><code>974797</code></td><td><code>client.fullName</code> (часть)</td></tr>
+            <tr><td>Contact</td><td>Телефон</td><td><code>field_code=PHONE</code></td><td><code>client.phone</code> (очистка до цифр и +)</td></tr>
+            <tr><td>Contact</td><td>Серия паспорта</td><td><code>895289</code></td><td><code>client.passportSeries</code></td></tr>
+            <tr><td>Contact</td><td>Номер паспорта</td><td><code>945334</code></td><td><code>client.passportNumber</code></td></tr>
+            <tr><td>Contact</td><td>Кем выдан</td><td><code>808693</code></td><td><code>client.passportIssuedBy</code></td></tr>
+            <tr><td>Contact</td><td>Дата выдачи паспорта</td><td><code>808757</code></td><td><code>client.passportIssueDate</code></td></tr>
+            <tr><td>Contact</td><td>Код подразделения</td><td><code>808695</code></td><td><code>client.passportDepartmentCode</code></td></tr>
+            <tr><td>Contact</td><td>Адрес регистрации</td><td><code>808697</code></td><td><code>client.registrationAddress</code></td></tr>
+            <tr><td>Contact</td><td>ИНН физлица</td><td><code>955217</code></td><td><code>client.inn</code></td></tr>
+            <tr><td>Contact</td><td>СНИЛС</td><td><code>945706</code></td><td><code>client.snils</code></td></tr>
+            <tr><td>Company</td><td>Название</td><td><code>company.name</code> fallback <code>897711</code></td><td><code>client.name</code></td></tr>
+            <tr><td>Company</td><td>Телефон</td><td><code>field_code=PHONE</code></td><td><code>client.phone</code></td></tr>
+            <tr><td>Company</td><td>ИНН юрлица</td><td><code>897733</code></td><td><code>client.inn</code></td></tr>
+            <tr><td>Company</td><td>КПП</td><td><code>897735</code></td><td><code>client.kpp</code></td></tr>
+            <tr><td>Company</td><td>Юридический адрес</td><td><code>897747</code></td><td><code>client.legalAddress</code></td></tr>
+            <tr><td>Company</td><td>Р/с</td><td><code>897751</code></td><td><code>client.rs</code></td></tr>
+            <tr><td>Company</td><td>БИК</td><td><code>897757</code></td><td><code>client.bik</code></td></tr>
+          </tbody>
+        </table>
+
+        <h3>6.2 Поля amoCRM, которые обновляются интеграцией</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Поле</th>
+              <th>ID</th>
+              <th>Когда обновляется</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>onec_counterparty_id</code></td>
+              <td><code>986431</code></td>
+              <td>После callback <code>status=created/found</code> и непустого <code>1cId</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>6.3 Поля входных API вызовов</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Endpoint</th>
+              <th>Поле</th>
+              <th>Тип</th>
+              <th>Обяз.</th>
+              <th>Комментарий</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td rowspan="2"><code>GET /contacts/pending</code></td><td><code>Authorization</code></td><td>header</td><td>Да</td><td>Bearer token</td></tr>
+            <tr><td><code>limit</code></td><td>query int</td><td>Нет</td><td>1..200, default 50</td></tr>
+            <tr><td rowspan="7"><code>POST /contacts/result</code></td><td><code>requestId</code></td><td>string</td><td>Да</td><td>Ключ операции</td></tr>
+            <tr><td><code>status</code></td><td>enum</td><td>Да</td><td><code>created|found|error</code></td></tr>
+            <tr><td><code>1cId</code></td><td>string</td><td>Нет</td><td>ID контрагента в 1С</td></tr>
+            <tr><td><code>processedAt</code></td><td>string</td><td>Нет</td><td>ISO datetime</td></tr>
+            <tr><td><code>error</code></td><td>string</td><td>Нет</td><td>Ошибка обработки</td></tr>
+            <tr><td><code>1cID</code></td><td>string</td><td>Нет</td><td>legacy alias</td></tr>
+            <tr><td><code>1cid</code></td><td>string</td><td>Нет</td><td>legacy alias</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="s-7">
+        <h2>7. Модель данных (таблицы БД)</h2>
+
+        <h3>7.1 onec_counterparty_buffers</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Колонка</th>
+              <th>Тип</th>
+              <th>Смысл</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>id</code></td><td>bigint PK</td><td>Внутренний ID записи</td></tr>
+            <tr><td><code>request_id</code></td><td>string unique</td><td>Внешний ключ обмена с 1С</td></tr>
+            <tr><td><code>lead_id</code></td><td>bigint</td><td>ID сделки amoCRM</td></tr>
+            <tr><td><code>contact_id</code></td><td>bigint nullable</td><td>ID контакта, если есть</td></tr>
+            <tr><td><code>company_id</code></td><td>bigint nullable</td><td>ID компании, если есть</td></tr>
+            <tr><td><code>client_type</code></td><td>string(32)</td><td><code>individual|legal</code></td></tr>
+            <tr><td><code>vin</code></td><td>string nullable</td><td>VIN</td></tr>
+            <tr><td><code>payload_hash</code></td><td>string(64)</td><td>sha256 для dedupe</td></tr>
+            <tr><td><code>payload_json</code></td><td>longText</td><td>Полный payload c requestId</td></tr>
+            <tr><td><code>status</code></td><td>string(32)</td><td><code>pending|pulled|processed|error</code></td></tr>
+            <tr><td><code>pull_attempts</code></td><td>uint</td><td>Сколько раз выдавалась в pending</td></tr>
+            <tr><td><code>pulled_at</code></td><td>timestamp nullable</td><td>Когда 1С забрала</td></tr>
+            <tr><td><code>onec_counterparty_id</code></td><td>string nullable</td><td>ID контрагента из callback</td></tr>
+            <tr><td><code>onec_processing_status</code></td><td>string(32) nullable</td><td><code>created|found|error</code></td></tr>
+            <tr><td><code>last_error</code></td><td>text nullable</td><td>Текст ошибки</td></tr>
+            <tr><td><code>processed_at</code></td><td>timestamp nullable</td><td>Время обработки</td></tr>
+            <tr><td><code>created_at</code>, <code>updated_at</code></td><td>timestamps</td><td>Служебные поля Laravel</td></tr>
+          </tbody>
+        </table>
+
+        <h3>7.2 onec_counterparty_sync_events</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Колонка</th>
+              <th>Тип</th>
+              <th>Смысл</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>id</code></td><td>bigint PK</td><td>ID события</td></tr>
+            <tr><td><code>buffer_id</code></td><td>FK</td><td>Связь с буфером</td></tr>
+            <tr><td><code>event_type</code></td><td>string(32)</td><td><code>enqueued|pulled|callback</code></td></tr>
+            <tr><td><code>attempt_no</code></td><td>uint</td><td>Номер попытки</td></tr>
+            <tr><td><code>request_id</code></td><td>string nullable</td><td>Для удобства поиска</td></tr>
+            <tr><td><code>http_status</code></td><td>smallint nullable</td><td>Пока фактически не заполняется</td></tr>
+            <tr><td><code>request_payload</code></td><td>longText nullable</td><td>Запрос на этом шаге</td></tr>
+            <tr><td><code>response_payload</code></td><td>longText nullable</td><td>Ответ/выдаваемый payload</td></tr>
+            <tr><td><code>result</code></td><td>string(32)</td><td><code>success|error</code></td></tr>
+            <tr><td><code>error_message</code></td><td>text nullable</td><td>Текст ошибки</td></tr>
+            <tr><td><code>created_at</code>, <code>updated_at</code></td><td>timestamps</td><td>Служебные поля</td></tr>
+          </tbody>
+        </table>
+
+        <h3>7.3 Жизненный цикл статусов буфера</h3>
+        <div class="flow">pending  --(GET /contacts/pending)--> pulled --(POST /contacts/result status=created|found)--> processed
+                                         \
+                                          \--(POST /contacts/result status=error)-------> error</div>
+      </section>
+
+      <section id="s-8">
+        <h2>8. Логирование и наблюдаемость</h2>
+        <p>Для всех запросов под middleware <code>log.amo.requests</code> пишется JSON-лог в файл:</p>
+        <pre>storage/logs/amo_requests.log</pre>
+        <p>Смотреть в браузере можно через:</p>
+        <pre>GET /api/amocrm/logs?limit=100</pre>
+        <h3>Что логируется</h3>
+        <ul>
+          <li>метод, URL, path, IP, User-Agent, duration, response_status, exception;</li>
+          <li>query, payload, raw_body (с маскированием чувствительных полей).</li>
+        </ul>
+        <h3>Что маскируется</h3>
+        <p>Ключи, содержащие: <code>secret</code>, <code>token</code>, <code>authorization</code>, <code>api_key</code>, <code>password</code>.</p>
+      </section>
+
+      <section id="s-9">
+        <h2>9. Пошаговое E2E-тестирование</h2>
+        <h3>Минимальные предпосылки</h3>
+        <ol>
+          <li>Запущен <code>avterminal-api</code> и применены миграции.</li>
+          <li>В <code>.env</code> заполнены amoCRM-параметры и <code>ONEC_AMO_WEBHOOK_SECRET</code>.</li>
+          <li>Есть тестовая сделка в amoCRM с доступным <code>leadId</code>.</li>
+        </ol>
+
+        <section id="s-9-1">
+          <h3>9.1 Быстрый тест через 1c-mock</h3>
+          <p>1) Получить токен для вызова защищенных endpoint-ов:</p>
+          <pre>curl -sS -X POST http://api-avto-terminal.ru/api/setup-test-user</pre>
+          <p>Из ответа взять <code>token</code> и сохранить:</p>
+          <pre>export ONEC_TEST_TOKEN="...token..."</pre>
+          <p>2) Поставить сделку в буфер:</p>
+          <pre>curl -sS -X POST "http://api-avto-terminal.ru/api/amocrm/deals/contract-ready?secret=YOUR_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"dealId":25147637}'</pre>
+          <p>3) Эмулировать работу 1С полностью (pull + callback):</p>
+          <pre>python3 1c-mock/simulate_1c.py flow --limit 50 --status created</pre>
+          <p>4) Проверить логи:</p>
+          <pre>http://api-avto-terminal.ru/api/amocrm/logs?limit=100</pre>
+        </section>
+
+        <section id="s-9-2">
+          <h3>9.2 Ручные curl-сценарии</h3>
+          <p><b>Сценарий A: pending</b></p>
+          <pre>curl -sS "http://api-avto-terminal.ru/api/amocrm/integrations/1c/contacts/pending?limit=50" \
+  -H "Authorization: Bearer ${ONEC_TEST_TOKEN}" \
+  -H "Accept: application/json"</pre>
+
+          <p><b>Сценарий B: callback success</b></p>
+          <pre>curl -sS -X POST "http://api-avto-terminal.ru/api/amocrm/integrations/1c/contacts/result" \
+  -H "Authorization: Bearer ${ONEC_TEST_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "requestId":"req_xxxxx",
+    "status":"created",
+    "1cId":"1c-ctr-0001",
+    "processedAt":"2026-03-25T11:20:00+10:00"
+  }'</pre>
+
+          <p><b>Сценарий C: callback error</b></p>
+          <pre>curl -sS -X POST "http://api-avto-terminal.ru/api/amocrm/integrations/1c/contacts/result" \
+  -H "Authorization: Bearer ${ONEC_TEST_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "requestId":"req_xxxxx",
+    "status":"error",
+    "error":"ИНН не найден в ФНС"
+  }'</pre>
+        </section>
+
+        <section id="s-9-3">
+          <h3>9.3 Матрица тест-кейсов (что обязательно прогнать)</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Кейс</th>
+                <th>Шаги</th>
+                <th>Ожидаемый результат</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>T1</td>
+                <td>Happy path individual</td>
+                <td>contract-ready → pending → result(created)</td>
+                <td>Буфер: <code>processed</code>, поле 986431 заполнено, комментарии в лиде есть</td>
+              </tr>
+              <tr>
+                <td>T2</td>
+                <td>Happy path legal</td>
+                <td>Сделка с компанией → полный flow</td>
+                <td>В payload есть блок реквизитов юрлица</td>
+              </tr>
+              <tr>
+                <td>T3</td>
+                <td>Dedupe без изменений</td>
+                <td>Два раза contract-ready без изменения карточки</td>
+                <td>2-й ответ: <code>already_buffered</code>, requestId тот же</td>
+              </tr>
+              <tr>
+                <td>T4</td>
+                <td>Новая версия данных</td>
+                <td>Изменить поле (например, ИНН) и снова contract-ready</td>
+                <td>Новый <code>requestId</code>, новая запись <code>pending</code></td>
+              </tr>
+              <tr>
+                <td>T5</td>
+                <td>Не та стадия</td>
+                <td>Передать pipeline/status не из "Договор"</td>
+                <td><code>ignored</code>, запись в буфер не создается</td>
+              </tr>
+              <tr>
+                <td>T6</td>
+                <td>Неверный secret</td>
+                <td>contract-ready с неправильным секретом</td>
+                <td><code>403 Invalid webhook secret</code></td>
+              </tr>
+              <tr>
+                <td>T7</td>
+                <td>requestId не найден</td>
+                <td>result с несуществующим requestId</td>
+                <td><code>404 requestId not found</code></td>
+              </tr>
+              <tr>
+                <td>T8</td>
+                <td>Legacy ключ 1cID</td>
+                <td>result с <code>1cID</code> вместо <code>1cId</code></td>
+                <td>Обрабатывается успешно</td>
+              </tr>
+              <tr>
+                <td>T9</td>
+                <td>created без 1cId</td>
+                <td>result(status=created, без 1cId)</td>
+                <td>Буфер: <code>processed</code>, но поле 986431 не обновляется</td>
+              </tr>
+              <tr>
+                <td>T10</td>
+                <td>Проверка limit</td>
+                <td>pending с <code>limit=0</code> или <code>limit=999</code></td>
+                <td><code>422 Validation failed</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      </section>
+
+      <section id="s-10">
+        <h2>10. Частые причины проблем</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Симптом</th>
+              <th>Проверить в первую очередь</th>
+              <th>Где смотреть</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>contract-ready всегда 403</td>
+              <td>Неверный secret или не тот способ передачи</td>
+              <td><code>.env</code>, <code>/api/amocrm/logs</code></td>
+            </tr>
+            <tr>
+              <td>pending пустой, хотя ожидали записи</td>
+              <td>Событие могло быть ignored, либо dedupe вернул старый requestId</td>
+              <td>Комментарии лида, таблица buffers, логи</td>
+            </tr>
+            <tr>
+              <td>Записи зависают в pulled</td>
+              <td>1С не отправляет callback result</td>
+              <td>sync_events, логи входящих запросов</td>
+            </tr>
+            <tr>
+              <td>Поле 1C ID в лиде пустое</td>
+              <td>В callback нет <code>1cId</code> или статус <code>error</code></td>
+              <td>payload callback, sync_events</td>
+            </tr>
+            <tr>
+              <td>500 на result с processedAt</td>
+              <td>Непарсируемый формат даты</td>
+              <td>Логи приложения и запроса</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="s-11">
+        <h2>11. Шаблон обратной связи после теста</h2>
+        <div class="panel">
+          <p><b>Стенд:</b> (URL, ветка, дата/время)</p>
+          <p><b>Что тестировали:</b> (T1..T10 из матрицы)</p>
+          <p><b>Что ожидали:</b> (коротко)</p>
+          <p><b>Что получили фактически:</b> (коротко)</p>
+          <p><b>requestId / leadId / VIN:</b> (...)</p>
+          <p><b>Логи:</b> ссылка на <code>/api/amocrm/logs?limit=...</code>, время записи</p>
+          <p><b>Критичность:</b> блокер / высокий / средний / низкий</p>
+          <p><b>Предложение по фиксу:</b> (если есть)</p>
+        </div>
+      </section>
+
+      <section id="s-12">
+        <h2>12. Чеклист готовности к прод</h2>
+        <ol>
+          <li>Заданы <code>ONEC_AMO_WEBHOOK_SECRET</code>, <code>ONEC_CONTRACT_PIPELINE_ID</code>, <code>ONEC_CONTRACT_STATUS_ID</code>.</li>
+          <li>1С умеет работать с одиночным callback-объектом и всегда отправляет <code>result</code>.</li>
+          <li>Пройдены T1..T10 без критических дефектов.</li>
+          <li>Операционный доступ к <code>/api/amocrm/logs</code> согласован (или закрыт по политике безопасности).</li>
+          <li>Согласовано, как обрабатывать зависшие <code>pulled</code> записи (регламент retries/manual replay).</li>
+        </ol>
+        <p class="muted small">
+          Документ можно использовать как базу для onboarding, QA и коммуникации между командами amoCRM/1С.
+        </p>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
