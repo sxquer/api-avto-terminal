@@ -20,8 +20,21 @@ class OneCIntegrationController extends Controller
      */
     public function contractReady(Request $request): JsonResponse
     {
+        return $this->handleContractReady($request, CounterpartyFlowService::ENV_PRODUCTION);
+    }
+
+    /**
+     * Тестовый триггер: читает боевую amoCRM, но кладет payload в отдельную test-очередь.
+     */
+    public function contractReadyTest(Request $request): JsonResponse
+    {
+        return $this->handleContractReady($request, CounterpartyFlowService::ENV_TEST);
+    }
+
+    private function handleContractReady(Request $request, string $environment): JsonResponse
+    {
         try {
-            if ($authError = $this->authorizeAmoWebhook($request)) {
+            if ($authError = $this->authorizeAmoWebhook($request, $environment)) {
                 return $authError;
             }
 
@@ -46,7 +59,8 @@ class OneCIntegrationController extends Controller
                 ], 200);
             }
 
-            $result = $this->flowService->enqueueFromLead((int) $context['dealId'], $payload);
+            $result = $this->flowService->enqueueFromLead((int) $context['dealId'], $payload, $environment);
+            $this->hideEnvironmentForProduction($result, $environment);
             $result['source'] = $context['source'];
 
             return response()->json($result, 200);
@@ -57,9 +71,13 @@ class OneCIntegrationController extends Controller
         }
     }
 
-    private function authorizeAmoWebhook(Request $request): ?JsonResponse
+    private function authorizeAmoWebhook(Request $request, string $environment): ?JsonResponse
     {
-        $expectedSecret = trim((string) config('amocrm.onec.webhook_secret', ''));
+        $expectedSecret = trim((string) (
+            $environment === CounterpartyFlowService::ENV_TEST
+                ? config('amocrm.onec.test_webhook_secret', '')
+                : config('amocrm.onec.webhook_secret', '')
+        ));
 
         if ($expectedSecret === '') {
             return response()->json([
@@ -89,17 +107,36 @@ class OneCIntegrationController extends Controller
      */
     public function pendingContacts(Request $request): JsonResponse
     {
+        return $this->handlePendingContacts($request, CounterpartyFlowService::ENV_PRODUCTION);
+    }
+
+    /**
+     * Test pull endpoint: тестовая 1С забирает только test-пакеты.
+     */
+    public function pendingContactsTest(Request $request): JsonResponse
+    {
+        return $this->handlePendingContacts($request, CounterpartyFlowService::ENV_TEST);
+    }
+
+    private function handlePendingContacts(Request $request, string $environment): JsonResponse
+    {
         try {
             $validated = $request->validate([
                 'limit' => 'sometimes|integer|min:1|max:200',
             ]);
 
-            $items = $this->flowService->getPending((int) ($validated['limit'] ?? 50));
+            $items = $this->flowService->getPending((int) ($validated['limit'] ?? 50), $environment);
 
-            return response()->json([
+            $responseData = [
                 'count' => count($items),
                 'items' => $items,
-            ], 200);
+            ];
+
+            if ($environment === CounterpartyFlowService::ENV_TEST) {
+                $responseData['environment'] = $environment;
+            }
+
+            return response()->json($responseData, 200);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'error' => 'Validation failed',
@@ -116,6 +153,19 @@ class OneCIntegrationController extends Controller
      * Callback endpoint: 1С сообщает итог обработки контрагента.
      */
     public function contactsResult(Request $request): JsonResponse
+    {
+        return $this->handleContactsResult($request, CounterpartyFlowService::ENV_PRODUCTION);
+    }
+
+    /**
+     * Test callback endpoint: принимает результат тестовой 1С без записи обратно в amoCRM.
+     */
+    public function contactsResultTest(Request $request): JsonResponse
+    {
+        return $this->handleContactsResult($request, CounterpartyFlowService::ENV_TEST);
+    }
+
+    private function handleContactsResult(Request $request, string $environment): JsonResponse
     {
         try {
             // Поддерживаем legacy-ключи, но внутри нормализуем в 1cId.
@@ -144,7 +194,8 @@ class OneCIntegrationController extends Controller
 
             unset($validated['1cID']);
             unset($validated['1cid']);
-            $result = $this->flowService->processResult($validated);
+            $result = $this->flowService->processResult($validated, $environment);
+            $this->hideEnvironmentForProduction($result, $environment);
 
             return response()->json($result, 200);
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -172,10 +223,11 @@ class OneCIntegrationController extends Controller
         try {
             $validated = $request->validate([
                 'limit' => 'sometimes|integer|min:1|max:50',
+                'environment' => 'sometimes|string|in:production,test',
             ]);
 
             $limit = (int) ($validated['limit'] ?? 5);
-            $items = $this->flowService->getLatestBufferStatuses($limit);
+            $items = $this->flowService->getLatestBufferStatuses($limit, $validated['environment'] ?? null);
             $pullBaseUrl = url('/api/amocrm/integrations/1c/debug/pull-by-request');
 
             $items = array_map(function (array $item) use ($pullBaseUrl) {
@@ -250,6 +302,13 @@ class OneCIntegrationController extends Controller
         parse_str($rawBody, $parsed);
 
         return is_array($parsed) ? $parsed : [];
+    }
+
+    private function hideEnvironmentForProduction(array &$result, string $environment): void
+    {
+        if ($environment === CounterpartyFlowService::ENV_PRODUCTION) {
+            unset($result['environment']);
+        }
     }
 
     /**

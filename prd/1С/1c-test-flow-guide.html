@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Тестовый поток 1С: amoCRM → avterminal-api → тестовая 1С</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --text: #111827;
+      --muted: #4b5563;
+      --line: #d9dee8;
+      --brand: #0f4c81;
+      --brand-soft: #e7f0fb;
+      --ok: #0f766e;
+      --warn: #a16207;
+      --bad: #b91c1c;
+      --code-bg: #0b1020;
+      --code-text: #d1d5db;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.55;
+    }
+
+    .wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 24px 16px 48px;
+    }
+
+    .hero,
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .hero {
+      border-color: #bfdbfe;
+      background: #f8fbff;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 30px;
+      line-height: 1.15;
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      font-size: 23px;
+      line-height: 1.2;
+    }
+
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 18px;
+      line-height: 1.25;
+    }
+
+    p { margin: 8px 0; }
+    ul, ol { margin: 8px 0; padding-left: 22px; }
+    li { margin: 6px 0; }
+
+    code,
+    pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+    }
+
+    code {
+      background: #eef2f7;
+      border: 1px solid #dce3ee;
+      border-radius: 5px;
+      padding: 1px 5px;
+    }
+
+    pre {
+      margin: 10px 0;
+      padding: 12px;
+      overflow-x: auto;
+      color: var(--code-text);
+      background: var(--code-bg);
+      border-radius: 8px;
+      white-space: pre;
+    }
+
+    pre code {
+      color: inherit;
+      background: transparent;
+      border: 0;
+      padding: 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th { background: #f2f5f9; }
+
+    .muted { color: var(--muted); }
+    .badge {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 12px;
+      font-weight: 700;
+      vertical-align: middle;
+    }
+    .badge-ok { color: #065f46; background: #d1fae5; }
+    .badge-warn { color: #92400e; background: #fef3c7; }
+    .badge-bad { color: #991b1b; background: #fee2e2; }
+    .note {
+      border-left: 4px solid var(--brand);
+      background: var(--brand-soft);
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin: 12px 0;
+    }
+    .warn {
+      border-left-color: var(--warn);
+      background: #fffbeb;
+    }
+    .bad {
+      border-left-color: var(--bad);
+      background: #fef2f2;
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="hero">
+      <h1>Тестовый поток 1С</h1>
+      <p class="muted">Инструкция для разработчика 1С по работе с отдельной тестовой очередью контрагентов.</p>
+      <p><b>Базовый адрес:</b> <code>http://api-avto-terminal.ru</code></p>
+      <p><b>Назначение:</b> протестировать обмен с 1С на реальных данных из боевой amoCRM, не забирая боевую очередь и не меняя данные в карточках amoCRM.</p>
+    </div>
+
+    <section>
+      <h2>1. Коротко о схеме</h2>
+      <p>Тестовый поток использует боевую amoCRM только как источник данных для чтения. После запуска тестового endpoint сервер собирает payload по сделке и кладет его в отдельную очередь с признаком <code>environment=test</code>.</p>
+      <p>Тестовая 1С забирает данные только из test-очереди и отправляет callback только в test-endpoint. Боевой поток остается на старых URL и работает с <code>environment=production</code>.</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Контур</th>
+            <th>Постановка в очередь</th>
+            <th>Забор pending</th>
+            <th>Callback result</th>
+            <th>Запись обратно в amoCRM</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Боевой</td>
+            <td><code>/api/amocrm/deals/contract-ready</code></td>
+            <td><code>/api/amocrm/integrations/1c/contacts/pending</code></td>
+            <td><code>/api/amocrm/integrations/1c/contacts/result</code></td>
+            <td><span class="badge badge-ok">Да</span> обновляется <code>1cId</code>, добавляются комментарии</td>
+          </tr>
+          <tr>
+            <td>Тестовый</td>
+            <td><code>/api/amocrm/deals/contract-ready-test</code></td>
+            <td><code>/api/amocrm/integrations/1c-test/contacts/pending</code></td>
+            <td><code>/api/amocrm/integrations/1c-test/contacts/result</code></td>
+            <td><span class="badge badge-warn">Нет</span> amoCRM не меняется</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="note warn">
+        <b>Главное правило:</b> тестовая 1С не должна ходить на боевые URL <code>/integrations/1c/contacts/*</code>. Для тестов используются только URL с <code>1c-test</code>.
+      </div>
+    </section>
+
+    <section>
+      <h2>2. Что нужно настроить</h2>
+
+      <h3>2.1. На стороне API</h3>
+      <p>На сервере должен быть задан отдельный секрет тестового webhook:</p>
+      <pre><code>ONEC_AMO_WEBHOOK_TEST_SECRET=секрет_для_тестового_запуска</code></pre>
+      <p>Также нужен отдельный Bearer token Sanctum для тестовой 1С. Его желательно не использовать в боевом контуре.</p>
+
+      <h3>2.2. На стороне amoCRM</h3>
+      <p>Для ручного теста можно дергать endpoint напрямую по ID сделки. Если нужен тест через кнопку или webhook amoCRM, он должен отправлять запрос именно на:</p>
+      <pre><code>POST http://api-avto-terminal.ru/api/amocrm/deals/contract-ready-test?secret=секрет_для_тестового_запуска</code></pre>
+
+      <p>Payload может быть одним из поддерживаемых вариантов:</p>
+      <ul>
+        <li><code>{"dealId": 123456}</code> - простой JSON для ручного запуска.</li>
+        <li><code>lead[id]</code> - формат кнопки из карточки.</li>
+        <li><code>leads[status][0][id]</code> - формат amoCRM webhook смены статуса.</li>
+      </ul>
+
+      <h3>2.3. На стороне тестовой 1С</h3>
+      <p>В настройках тестовой 1С указать:</p>
+      <ul>
+        <li>базовый адрес: <code>http://api-avto-terminal.ru</code>;</li>
+        <li>pending URL: <code>/api/amocrm/integrations/1c-test/contacts/pending</code>;</li>
+        <li>result URL: <code>/api/amocrm/integrations/1c-test/contacts/result</code>;</li>
+        <li>HTTP-заголовок: <code>Authorization: Bearer ТЕСТОВЫЙ_TOKEN</code>;</li>
+        <li>HTTP-заголовок: <code>Content-Type: application/json</code>.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>3. Жизненный цикл тестовой записи</h2>
+      <ol>
+        <li>Оператор или разработчик запускает <code>contract-ready-test</code> по сделке.</li>
+        <li>API читает сделку, контакт и компанию из боевой amoCRM.</li>
+        <li>API формирует payload контрагента и создает запись в test-очереди со статусом <code>pending</code>.</li>
+        <li>Тестовая 1С вызывает <code>GET /pending</code> и получает список элементов.</li>
+        <li>При выдаче в 1С запись меняет статус на <code>pulled</code>.</li>
+        <li>Тестовая 1С обрабатывает данные и отправляет <code>POST /result</code>.</li>
+        <li>API меняет статус записи на <code>processed</code> или <code>error</code>.</li>
+      </ol>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Статус записи</th>
+            <th>Значение</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>pending</code></td>
+            <td>Запись создана и ждет забора тестовой 1С.</td>
+          </tr>
+          <tr>
+            <td><code>pulled</code></td>
+            <td>Запись уже отдана тестовой 1С через <code>GET /pending</code>.</td>
+          </tr>
+          <tr>
+            <td><code>processed</code></td>
+            <td>Тестовая 1С успешно обработала контрагента и вернула <code>created</code> или <code>found</code>.</td>
+          </tr>
+          <tr>
+            <td><code>error</code></td>
+            <td>Тестовая 1С вернула ошибку обработки.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>4. Endpoint постановки в тестовую очередь</h2>
+      <p><b>Метод:</b> <code>POST</code></p>
+      <p><b>URL:</b> <code>http://api-avto-terminal.ru/api/amocrm/deals/contract-ready-test</code></p>
+      <p><b>Авторизация:</b> отдельный webhook secret. Можно передать одним из способов:</p>
+      <ul>
+        <li>query: <code>?secret=...</code>;</li>
+        <li>body: <code>{"secret":"..."}</code>;</li>
+        <li>header: <code>X-Amo-Webhook-Secret: ...</code>;</li>
+        <li>header: <code>X-Webhook-Secret: ...</code>.</li>
+      </ul>
+
+      <h3>Минимальный ручной запуск</h3>
+      <pre><code>curl -X POST "http://api-avto-terminal.ru/api/amocrm/deals/contract-ready-test?secret=TEST_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dealId": 123456
+  }'</code></pre>
+
+      <h3>Успешный ответ</h3>
+      <pre><code>{
+  "requestId": "req_ab12cd34ef56",
+  "status": "queued",
+  "environment": "test",
+  "source": "json_deal_id"
+}</code></pre>
+
+      <h3>Повторная отправка без изменения карточки</h3>
+      <p>Если payload по сделке уже есть в test-очереди, новая запись не создается. API вернет существующий <code>requestId</code>:</p>
+      <pre><code>{
+  "requestId": "req_ab12cd34ef56",
+  "status": "already_buffered",
+  "environment": "test",
+  "source": "json_deal_id"
+}</code></pre>
+
+      <div class="note">
+        Дедупликация test и production выполняется отдельно. Наличие такой же карточки в боевой очереди не мешает создать тестовую запись.
+      </div>
+    </section>
+
+    <section>
+      <h2>5. Как тестовая 1С забирает pending</h2>
+      <p><b>Метод:</b> <code>GET</code></p>
+      <p><b>URL:</b> <code>http://api-avto-terminal.ru/api/amocrm/integrations/1c-test/contacts/pending?limit=50</code></p>
+      <p><b>Авторизация:</b> <code>Authorization: Bearer ТЕСТОВЫЙ_TOKEN</code></p>
+
+      <pre><code>curl -X GET "http://api-avto-terminal.ru/api/amocrm/integrations/1c-test/contacts/pending?limit=50" \
+  -H "Authorization: Bearer TEST_TOKEN" \
+  -H "Accept: application/json"</code></pre>
+
+      <h3>Пример ответа</h3>
+      <pre><code>{
+  "count": 1,
+  "items": [
+    {
+      "vin": "VIN1234567890",
+      "dealId": 123456,
+      "clientType": "individual",
+      "clientTypeRaw": "Физ Лицо",
+      "client": {
+        "fullName": "Иванов Иван Иванович",
+        "phone": "+79990000000",
+        "email": "client@example.com",
+        "passportSeries": "1234",
+        "passportNumber": "567890",
+        "registrationAddress": "г. Владивосток, ул. Светланская, д. 1",
+        "inn": "123456789012",
+        "snils": "123-456-789 00",
+        "dealerName": "ООО Дилер",
+        "dealerInn": "1234567890"
+      },
+      "deal": {
+        "dealNumber": "123456",
+        "contractNumber": "123456",
+        "contractDate": "2026-04-10",
+        "warehouse": "Авто-Терминал",
+        "brand": "Toyota",
+        "model": "Camry"
+      },
+      "_meta": {
+        "contactId": 501,
+        "companyId": 701
+      },
+      "requestId": "req_ab12cd34ef56"
+    }
+  ],
+  "environment": "test"
+}</code></pre>
+
+      <div class="note warn">
+        После успешного <code>GET /pending</code> записи считаются отданными и переходят в статус <code>pulled</code>. Повторный <code>GET /pending</code> эти же записи уже не вернет.
+      </div>
+    </section>
+
+    <section>
+      <h2>6. Как тестовая 1С отправляет результат</h2>
+      <p><b>Метод:</b> <code>POST</code></p>
+      <p><b>URL:</b> <code>http://api-avto-terminal.ru/api/amocrm/integrations/1c-test/contacts/result</code></p>
+      <p><b>Авторизация:</b> <code>Authorization: Bearer ТЕСТОВЫЙ_TOKEN</code></p>
+
+      <h3>Успешное создание или найденный контрагент</h3>
+      <pre><code>curl -X POST "http://api-avto-terminal.ru/api/amocrm/integrations/1c-test/contacts/result" \
+  -H "Authorization: Bearer TEST_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "requestId": "req_ab12cd34ef56",
+    "status": "created",
+    "1cId": "test-1c-counterparty-001",
+    "processedAt": "2026-05-30T10:00:00+10:00"
+  }'</code></pre>
+
+      <p>Поддерживаемые успешные статусы:</p>
+      <ul>
+        <li><code>created</code> - контрагент создан в тестовой 1С;</li>
+        <li><code>found</code> - контрагент найден в тестовой 1С.</li>
+      </ul>
+
+      <h3>Ошибка обработки</h3>
+      <pre><code>curl -X POST "http://api-avto-terminal.ru/api/amocrm/integrations/1c-test/contacts/result" \
+  -H "Authorization: Bearer TEST_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "requestId": "req_ab12cd34ef56",
+    "status": "error",
+    "error": "ИНН не прошел проверку",
+    "processedAt": "2026-05-30T10:05:00+10:00"
+  }'</code></pre>
+
+      <h3>Ответ API</h3>
+      <pre><code>{
+  "requestId": "req_ab12cd34ef56",
+  "leadId": 123456,
+  "status": "processed",
+  "environment": "test"
+}</code></pre>
+
+      <p>Если отправлен <code>status=error</code>, поле <code>status</code> в ответе будет <code>error</code>.</p>
+    </section>
+
+    <section>
+      <h2>7. Чего ждать от тестового потока</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Ожидание</th>
+            <th>Будет?</th>
+            <th>Комментарий</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>API прочитает реальные данные из боевой amoCRM</td>
+            <td><span class="badge badge-ok">Да</span></td>
+            <td>Payload собирается по реальной сделке, контакту и компании.</td>
+          </tr>
+          <tr>
+            <td>Тестовая 1С получит отдельную очередь</td>
+            <td><span class="badge badge-ok">Да</span></td>
+            <td>Выборка идет только по <code>environment=test</code>.</td>
+          </tr>
+          <tr>
+            <td>Тестовый callback изменит статус записи в API</td>
+            <td><span class="badge badge-ok">Да</span></td>
+            <td>Запись станет <code>processed</code> или <code>error</code>.</td>
+          </tr>
+          <tr>
+            <td>Тестовый callback запишет <code>1cId</code> в карточку amoCRM</td>
+            <td><span class="badge badge-bad">Нет</span></td>
+            <td>Это специально отключено, чтобы не портить боевую amoCRM.</td>
+          </tr>
+          <tr>
+            <td>Тестовый поток добавит комментарий в сделку amoCRM</td>
+            <td><span class="badge badge-bad">Нет</span></td>
+            <td>Комментарии в amoCRM добавляет только боевой поток.</td>
+          </tr>
+          <tr>
+            <td>Тестовая 1С случайно заберет боевую очередь</td>
+            <td><span class="badge badge-bad">Нет</span></td>
+            <td>Если используется правильный URL с <code>1c-test</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>8. Ошибки и диагностика</h2>
+      <h3>Нет секрета или неверный secret</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>HTTP</th>
+            <th>Причина</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>500</code></td>
+            <td>На сервере не задан <code>ONEC_AMO_WEBHOOK_TEST_SECRET</code>.</td>
+          </tr>
+          <tr>
+            <td><code>403</code></td>
+            <td>Передан пустой или неверный <code>secret</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Не найден dealId</h3>
+      <pre><code>{
+  "error": "Validation failed",
+  "details": {
+    "dealId": ["dealId не найден в payload"]
+  }
+}</code></pre>
+
+      <h3>requestId не найден при callback</h3>
+      <p>Если тестовая 1С отправит callback в test-endpoint по боевому <code>requestId</code>, API вернет <code>404</code>. Это правильное поведение: очереди изолированы.</p>
+
+      <h3>Посмотреть последние записи</h3>
+      <p>Для диагностики можно открыть:</p>
+      <pre><code>GET http://api-avto-terminal.ru/api/amocrm/integrations/1c/debug/statuses?environment=test&amp;limit=10</code></pre>
+
+      <p>Этот URL покажет последние записи test-очереди: <code>requestId</code>, <code>leadId</code>, <code>vin</code>, статус, дату забора и дату обработки.</p>
+    </section>
+
+    <section>
+      <h2>9. Рекомендуемый сценарий тестирования</h2>
+      <ol>
+        <li>Выбрать реальную сделку в amoCRM, которую можно использовать как источник данных.</li>
+        <li>Вызвать <code>contract-ready-test</code> с <code>dealId</code> этой сделки.</li>
+        <li>Убедиться, что ответ содержит <code>status=queued</code> или <code>already_buffered</code> и <code>environment=test</code>.</li>
+        <li>Вызвать test pending endpoint из тестовой 1С.</li>
+        <li>Проверить, что в payload пришли ожидаемые поля клиента, машины и договора.</li>
+        <li>Создать или найти контрагента в тестовой 1С.</li>
+        <li>Отправить callback в test result endpoint.</li>
+        <li>Проверить debug endpoint: запись должна стать <code>processed</code> или <code>error</code>.</li>
+        <li>Проверить карточку amoCRM: поле <code>1cId</code> и комментарии не должны измениться.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>10. Важные ограничения</h2>
+      <ul>
+        <li>Тестовый поток не является песочницей amoCRM. Он читает реальные данные из боевой amoCRM.</li>
+        <li>Тестовый поток не пишет изменения в amoCRM, но сам факт чтения зависит от доступности amoCRM API.</li>
+        <li>Если тестовая 1С случайно использует боевой pending URL, она будет работать с боевой очередью. Поэтому URL должны быть жестко разделены в настройках.</li>
+        <li>Один <code>GET /pending</code> переводит найденные записи в <code>pulled</code>. Для повторного теста без изменений API вернет <code>already_buffered</code>, а не создаст новую запись.</li>
+        <li>Чтобы создать новую test-запись по той же сделке, нужно изменить данные, которые входят в payload, или очистить/переоткрыть тестовую запись административно.</li>
+        <li>Callback test-контура принимает только <code>created</code>, <code>found</code> или <code>error</code>.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>11. Локальный эмулятор 1С</h2>
+      <p>Для ручной проверки можно использовать скрипт из папки <code>1c-mock</code>.</p>
+
+      <h3>Забрать test pending</h3>
+      <pre><code>python3 1c-mock/simulate_1c.py \
+  --base-url "http://api-avto-terminal.ru" \
+  --token "TEST_TOKEN" \
+  --environment test \
+  pull \
+  --limit 50</code></pre>
+
+      <h3>Полный test flow</h3>
+      <pre><code>python3 1c-mock/simulate_1c.py \
+  --base-url "http://api-avto-terminal.ru" \
+  --token "TEST_TOKEN" \
+  --environment test \
+  flow \
+  --limit 50 \
+  --status created</code></pre>
+    </section>
+  </main>
+</body>
+</html>

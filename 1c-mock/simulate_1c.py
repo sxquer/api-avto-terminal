@@ -58,11 +58,17 @@ def print_json(title: str, data: dict) -> None:
     print(json.dumps(data, ensure_ascii=False, indent=2))
 
 
+def onec_contacts_base_path(environment: str) -> str:
+    if environment == "test":
+        return "/api/amocrm/integrations/1c-test/contacts"
+    return "/api/amocrm/integrations/1c/contacts"
+
+
 def cmd_pull(args: argparse.Namespace) -> int:
     token = args.token
     headers = build_headers(token)
     query = urlencode({"limit": args.limit})
-    url = f"{args.base_url.rstrip('/')}/api/amocrm/integrations/1c/contacts/pending?{query}"
+    url = f"{args.base_url.rstrip('/')}{onec_contacts_base_path(args.environment)}/pending?{query}"
     status, data = http_get_json(url, headers)
     print(f"GET {url}")
     print(f"HTTP {status}")
@@ -73,7 +79,7 @@ def cmd_pull(args: argparse.Namespace) -> int:
 def cmd_result(args: argparse.Namespace) -> int:
     token = args.token
     headers = build_headers(token)
-    url = f"{args.base_url.rstrip('/')}/api/amocrm/integrations/1c/contacts/result"
+    url = f"{args.base_url.rstrip('/')}{onec_contacts_base_path(args.environment)}/result"
 
     payload = {
         "requestId": args.request_id,
@@ -100,7 +106,7 @@ def cmd_flow(args: argparse.Namespace) -> int:
     headers = build_headers(token)
 
     pending_url = (
-        f"{args.base_url.rstrip('/')}/api/amocrm/integrations/1c/contacts/pending?"
+        f"{args.base_url.rstrip('/')}{onec_contacts_base_path(args.environment)}/pending?"
         f"{urlencode({'limit': args.limit})}"
     )
     status, data = http_get_json(pending_url, headers)
@@ -115,7 +121,7 @@ def cmd_flow(args: argparse.Namespace) -> int:
         print("\nNo pending items.")
         return 0
 
-    result_url = f"{args.base_url.rstrip('/')}/api/amocrm/integrations/1c/contacts/result"
+    result_url = f"{args.base_url.rstrip('/')}{onec_contacts_base_path(args.environment)}/result"
     exit_code = 0
 
     for idx, item in enumerate(items, start=1):
@@ -175,6 +181,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--token",
         default=default_token,
         help="Bearer token (или ONEC_TEST_TOKEN / 1c-mock/settings.py).",
+    )
+    parser.add_argument(
+        "--environment",
+        default="production",
+        choices=["production", "test"],
+        help="Какую очередь 1С использовать: production или test.",
     )
 
     sub = parser.add_subparsers(dest="command", required=True)

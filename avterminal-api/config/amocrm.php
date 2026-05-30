@@ -118,5 +118,6 @@ return [
         'contract_pipeline_id' => env('ONEC_CONTRACT_PIPELINE_ID', 7523034),
         'contract_status_id' => env('ONEC_CONTRACT_STATUS_ID', 62360726),
         'webhook_secret' => env('ONEC_AMO_WEBHOOK_SECRET'),
+        'test_webhook_secret' => env('ONEC_AMO_WEBHOOK_TEST_SECRET'),
     ],
 ];
