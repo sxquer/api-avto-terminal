@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use Tests\TestCase;
-use App\Http\Controllers\AmoCRMController;
+use App\Services\AmoCRM\XmlGeneratorService;
 
 class AmoCRMControllerXmlEnhancementTest extends TestCase
 {
@@ -12,9 +12,6 @@ class AmoCRMControllerXmlEnhancementTest extends TestCase
      */
     public function test_xml_contains_new_moving_code_node()
     {
-        // Create a SimpleXML element to test the addXmlData method
-        $xml = new \SimpleXMLElement('<?xml version="1.0" encoding="windows-1251"?><AltaPassengerDeclaration/>');
-        
         // Mock data for testing
         $testData = [
             'custom_fields' => [
@@ -26,14 +23,7 @@ class AmoCRMControllerXmlEnhancementTest extends TestCase
             ]
         ];
         
-        // Create controller instance and call the private method using reflection
-        $controller = new AmoCRMController();
-        $reflection = new \ReflectionClass($controller);
-        $method = $reflection->getMethod('addXmlData');
-        $method->setAccessible(true);
-        
-        // Call the method
-        $method->invoke($controller, $xml, $testData, 123);
+        $xml = (new XmlGeneratorService())->generatePassengerDeclarationXml($testData, 123);
         
         // Assert that MovingCode exists and has the correct value
         $movingCodeNodes = $xml->xpath('//MovingCode');
@@ -46,8 +36,6 @@ class AmoCRMControllerXmlEnhancementTest extends TestCase
      */
     public function test_xml_contains_transport_kind_name()
     {
-        $xml = new \SimpleXMLElement('<?xml version="1.0" encoding="windows-1251"?><AltaPassengerDeclaration/>');
-        
         $testData = [
             'custom_fields' => [
                 ['field_name' => 'Марка', 'field_value' => 'TOYOTA'],
@@ -56,12 +44,7 @@ class AmoCRMControllerXmlEnhancementTest extends TestCase
             ]
         ];
         
-        $controller = new AmoCRMController();
-        $reflection = new \ReflectionClass($controller);
-        $method = $reflection->getMethod('addXmlData');
-        $method->setAccessible(true);
-        
-        $method->invoke($controller, $xml, $testData, 123);
+        $xml = (new XmlGeneratorService())->generatePassengerDeclarationXml($testData, 123);
         
         // Assert that TransportKindName exists and has the correct uppercase value
         $transportKindNodes = $xml->xpath('//TransportMeans_TransportMeansDetails/TransportKindName');
@@ -75,18 +58,11 @@ class AmoCRMControllerXmlEnhancementTest extends TestCase
      */
     public function test_xml_contains_doc_kind_code()
     {
-        $xml = new \SimpleXMLElement('<?xml version="1.0" encoding="windows-1251"?><AltaPassengerDeclaration/>');
-        
         $testData = [
             'custom_fields' => []
         ];
         
-        $controller = new AmoCRMController();
-        $reflection = new \ReflectionClass($controller);
-        $method = $reflection->getMethod('addXmlData');
-        $method->setAccessible(true);
-        
-        $method->invoke($controller, $xml, $testData, 123);
+        $xml = (new XmlGeneratorService())->generatePassengerDeclarationXml($testData, 123);
         
         // Assert that DocKindCode exists and has the correct value
         $docKindNodes = $xml->xpath('//SignatoryRepresentativeDetails_RepresentativeContractDetails_DocKindCode');
@@ -99,8 +75,6 @@ class AmoCRMControllerXmlEnhancementTest extends TestCase
      */
     public function test_xml_maintains_existing_structure_with_new_nodes()
     {
-        $xml = new \SimpleXMLElement('<?xml version="1.0" encoding="windows-1251"?><AltaPassengerDeclaration/>');
-        
         $testData = [
             'custom_fields' => [
                 ['field_name' => 'Фамилия', 'field_value' => 'ИВАНОВ'],
@@ -111,12 +85,7 @@ class AmoCRMControllerXmlEnhancementTest extends TestCase
             ]
         ];
         
-        $controller = new AmoCRMController();
-        $reflection = new \ReflectionClass($controller);
-        $method = $reflection->getMethod('addXmlData');
-        $method->setAccessible(true);
-        
-        $method->invoke($controller, $xml, $testData, 456);
+        $xml = (new XmlGeneratorService())->generatePassengerDeclarationXml($testData, 456);
         
         // Test that all three new nodes exist
         $this->assertNotEmpty($xml->xpath('//MovingCode'), 'MovingCode should exist');

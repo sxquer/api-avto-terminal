@@ -14,6 +14,9 @@ use Illuminate\Support\Str;
 
 class CounterpartyFlowService
 {
+    public const ENV_PRODUCTION = 'production';
+    public const ENV_TEST = 'test';
+
     public function __construct(
         private AmoCRMService $amoCRMService,
         private CustomFieldService $customFieldService
@@ -22,29 +25,39 @@ class CounterpartyFlowService
     /**
      * Собирает данные по сделке и ставит контрагента в буфер на отдачу в 1С.
      */
-    public function enqueueFromLead(int $leadId, array $incomingPayload = []): array
+    public function enqueueFromLead(
+        int $leadId,
+        array $incomingPayload = [],
+        string $environment = self::ENV_PRODUCTION
+    ): array
     {
+        $environment = $this->normalizeEnvironment($environment);
         $payload = $this->buildPayloadFromLead($leadId, $incomingPayload);
         $payloadHash = hash('sha256', json_encode($payload, JSON_UNESCAPED_UNICODE));
 
         // Дедупликация только по payload_hash: если такой payload уже есть по сделке,
         // повторно в буфер не ставим вне зависимости от статуса существующей записи.
+        // Очереди production/test дедуплицируются независимо.
         $existingSamePayload = OneCCounterpartyBuffer::query()
+            ->where('environment', $environment)
             ->where('lead_id', $leadId)
             ->where('payload_hash', $payloadHash)
             ->latest('id')
             ->first();
 
         if ($existingSamePayload) {
-            $this->addLeadComment($leadId, sprintf(
-                "[1C] Повторный запрос: идентичные данные уже есть в буфере/истории. requestId=%s, status=%s",
-                $existingSamePayload->request_id,
-                $existingSamePayload->status
-            ));
+            if ($this->shouldWriteBackToAmo($environment)) {
+                $this->addLeadComment($leadId, sprintf(
+                    "[1C] Повторный запрос: идентичные данные уже есть в буфере/истории. requestId=%s, status=%s",
+                    $existingSamePayload->request_id,
+                    $existingSamePayload->status
+                ));
+            }
 
             return [
                 'requestId' => $existingSamePayload->request_id,
                 'status' => 'already_buffered',
+                'environment' => $environment,
             ];
         }
 
@@ -53,6 +66,7 @@ class CounterpartyFlowService
 
         $buffer = OneCCounterpartyBuffer::query()->create([
             'request_id' => $requestId,
+            'environment' => $environment,
             'lead_id' => $leadId,
             'contact_id' => $payload['_meta']['contactId'] ?? null,
             'company_id' => $payload['_meta']['companyId'] ?? null,
@@ -72,27 +86,32 @@ class CounterpartyFlowService
             'result' => 'success',
         ]);
 
-        $this->addLeadComment($leadId, sprintf(
-            "[1C] Контрагент поставлен в буфер. requestId=%s, vin=%s, clientType=%s",
-            $requestId,
-            $payload['vin'] ?? '-',
-            $payload['clientType']
-        ));
+        if ($this->shouldWriteBackToAmo($environment)) {
+            $this->addLeadComment($leadId, sprintf(
+                "[1C] Контрагент поставлен в буфер. requestId=%s, vin=%s, clientType=%s",
+                $requestId,
+                $payload['vin'] ?? '-',
+                $payload['clientType']
+            ));
+        }
 
         return [
             'requestId' => $requestId,
             'status' => 'queued',
+            'environment' => $environment,
         ];
     }
 
     /**
      * Возвращает пакет pending-записей для забора 1С.
      */
-    public function getPending(int $limit = 50): array
+    public function getPending(int $limit = 50, string $environment = self::ENV_PRODUCTION): array
     {
+        $environment = $this->normalizeEnvironment($environment);
         $limit = max(1, min($limit, 200));
 
         $rows = OneCCounterpartyBuffer::query()
+            ->where('environment', $environment)
             ->where('status', 'pending')
             ->orderBy('id')
             ->limit($limit)
@@ -124,16 +143,22 @@ class CounterpartyFlowService
     /**
      * Возвращает последние записи буфера (для debug-диагностики).
      */
-    public function getLatestBufferStatuses(int $limit = 5): array
+    public function getLatestBufferStatuses(int $limit = 5, ?string $environment = null): array
     {
         $limit = max(1, min($limit, 50));
+        $query = OneCCounterpartyBuffer::query();
 
-        return OneCCounterpartyBuffer::query()
+        if ($environment !== null) {
+            $query->where('environment', $this->normalizeEnvironment($environment));
+        }
+
+        return $query
             ->orderByDesc('id')
             ->limit($limit)
             ->get([
                 'id',
                 'request_id',
+                'environment',
                 'lead_id',
                 'contact_id',
                 'company_id',
@@ -151,6 +176,7 @@ class CounterpartyFlowService
             ->map(fn (OneCCounterpartyBuffer $row) => [
                 'id' => $row->id,
                 'requestId' => $row->request_id,
+                'environment' => $row->environment,
                 'leadId' => $row->lead_id,
                 'contactId' => $row->contact_id,
                 'companyId' => $row->company_id,
@@ -226,9 +252,11 @@ class CounterpartyFlowService
     /**
      * Принимает callback от 1С с результатом обработки контрагента.
      */
-    public function processResult(array $data): array
+    public function processResult(array $data, string $environment = self::ENV_PRODUCTION): array
     {
+        $environment = $this->normalizeEnvironment($environment);
         $buffer = OneCCounterpartyBuffer::query()
+            ->where('environment', $environment)
             ->where('request_id', $data['requestId'])
             ->first();
 
@@ -257,7 +285,7 @@ class CounterpartyFlowService
             'error_message' => $data['error'] ?? null,
         ]);
 
-        if ($isSuccess && !empty($data['1cId'])) {
+        if ($this->shouldWriteBackToAmo($environment) && $isSuccess && !empty($data['1cId'])) {
             $this->customFieldService->updateLeadCustomFields((int) $buffer->lead_id, [
                 [
                     'field_key' => 'onec_counterparty_id',
@@ -267,13 +295,31 @@ class CounterpartyFlowService
             ]);
         }
 
-        $this->addLeadComment((int) $buffer->lead_id, $this->formatCallbackComment($data));
+        if ($this->shouldWriteBackToAmo($environment)) {
+            $this->addLeadComment((int) $buffer->lead_id, $this->formatCallbackComment($data));
+        }
 
         return [
             'requestId' => $buffer->request_id,
             'leadId' => (int) $buffer->lead_id,
             'status' => $buffer->status,
+            'environment' => $environment,
         ];
+    }
+
+    private function normalizeEnvironment(string $environment): string
+    {
+        $environment = trim(mb_strtolower($environment, 'UTF-8'));
+
+        return match ($environment) {
+            self::ENV_TEST => self::ENV_TEST,
+            default => self::ENV_PRODUCTION,
+        };
+    }
+
+    private function shouldWriteBackToAmo(string $environment): bool
+    {
+        return $environment === self::ENV_PRODUCTION;
     }
 
     private function buildPayloadFromLead(int $leadId, array $incomingPayload = []): array

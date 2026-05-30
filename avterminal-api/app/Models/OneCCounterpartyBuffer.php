@@ -10,6 +10,7 @@ class OneCCounterpartyBuffer extends Model
 
     protected $fillable = [
         'request_id',
+        'environment',
         'lead_id',
         'contact_id',
         'company_id',

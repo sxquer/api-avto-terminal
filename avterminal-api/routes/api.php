@@ -29,6 +29,8 @@ Route::get('/amocrm/integrations/1c/debug/statuses', [OneCIntegrationController:
 Route::get('/amocrm/integrations/1c/debug/pull-by-request', [OneCIntegrationController::class, 'debugPullByRequestId']);
 Route::post('/amocrm/deals/contract-ready', [OneCIntegrationController::class, 'contractReady'])
     ->middleware('log.amo.requests');
+Route::post('/amocrm/deals/contract-ready-test', [OneCIntegrationController::class, 'contractReadyTest'])
+    ->middleware('log.amo.requests');
 
 Route::middleware(['log.amo.requests', 'auth:sanctum'])->prefix('amocrm')->group(function () {
     
@@ -42,6 +44,8 @@ Route::middleware(['log.amo.requests', 'auth:sanctum'])->prefix('amocrm')->group
     // 1C integration, flow A (counterparties)
     Route::get('/integrations/1c/contacts/pending', [OneCIntegrationController::class, 'pendingContacts']);
     Route::post('/integrations/1c/contacts/result', [OneCIntegrationController::class, 'contactsResult']);
+    Route::get('/integrations/1c-test/contacts/pending', [OneCIntegrationController::class, 'pendingContactsTest']);
+    Route::post('/integrations/1c-test/contacts/result', [OneCIntegrationController::class, 'contactsResultTest']);
     
 });
 
