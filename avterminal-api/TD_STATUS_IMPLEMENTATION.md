@@ -15,20 +15,26 @@
 
 **Функциональность:**
 - Поиск сделки по VIN
-- Регистронезависимая проверка статуса "ТД Зарегистрирована"
-- Обновление полей: `nomer_td`, `status_td`, `registration_date_td`
+- Регистронезависимая проверка статусов "ТД Зарегистрирована" и "Транзит завершен"
+- Обновление полей регистрации: `nomer_td`, `status_td`, `registration_date_td`
+- Обновление полей завершения: `status_td`, `completion_date_td`
 - Условное изменение статуса сделки на "Транзит"
 - Полное логирование всех операций
 
 **Ключевые особенности:**
 ```php
 // Регистронезависимая проверка
-$expectedStatus = 'тд зарегистрирована';
 $receivedStatusLower = mb_strtolower(trim($status), 'UTF-8');
+$statusType = match ($receivedStatusLower) {
+    'тд зарегистрирована' => 'registration',
+    'транзит завершен' => 'completion',
+    default => null,
+};
 
 // Условное изменение статуса
 $tdStatusesToChange = config('amocrm.td_statuses_to_change', []);
-$shouldChangeStatus = in_array($currentStatusId, $tdStatusesToChange);
+$shouldChangeStatus = $statusType === 'registration'
+    && in_array($currentStatusId, $tdStatusesToChange, true);
 ```
 
 #### AmoCRMController::updateTDStatus()
@@ -92,6 +98,15 @@ Route::post('/td-status', [AmoCRMController::class, 'updateTDStatus']);
 | status_td | 984685 | Статус ТД |
 | registration_date_td | 984687 | Дата регистрации (timestamp) |
 
+При получении статуса "Транзит завершен" обновляются:
+
+| Поле | ID | Описание |
+|------|-----|----------|
+| status_td | 984685 | Значение "Транзит завершен" |
+| completion_date_td | 990795 | Дата и время завершения транзита |
+
+Карточка основной воронки при завершении транзита не перемещается.
+
 ### Изменение статуса сделки
 
 Статус меняется на **"Транзит"** (ID: 83281430) только если текущий статус в списке:
@@ -108,7 +123,7 @@ Route::post('/td-status', [AmoCRMController::class, 'updateTDStatus']);
 
 | Функция | DT Status | TD Status |
 |---------|-----------|-----------|
-| Количество статусов | 8 | 1 |
+| Количество статусов | 8 | 2 |
 | Перенос в историю | ✅ | ❌ |
 | Проверка смены номера | ✅ | ❌ |
 | Подсветка красным | ✅ | ❌ |
@@ -179,9 +194,11 @@ $timestamp = mktime((int)$hour - 10, (int)$minute, 0, ...);
         'id' => 984685,
         'values' => [
             "ТД Зарегистрирована" => 1238357,
+            "Транзит завершен" => "Транзит завершен",
         ],
     ],
     'registration_date_td' => ['id' => 984687],
+    'completion_date_td' => ['id' => 990795],
 ],
 
 'td_statuses_to_change' => [62360714, 62360726, 62360954],
@@ -260,7 +277,7 @@ curl -X POST https://your-domain.com/api/amocrm/td-status \
 **500 - Неверный статус:**
 ```json
 {
-  "error": "Статус 'XXXXX' не поддерживается. Ожидается: 'ТД Зарегистрирована'"
+  "error": "Статус 'XXXXX' не поддерживается. Ожидается: 'ТД Зарегистрирована' или 'Транзит завершен'"
 }
 ```
 
@@ -332,7 +349,7 @@ curl -X POST https://your-domain.com/api/amocrm/td-status \
 
 ---
 
-**Статус:** ✅ Готово к продакшену  
-**Версия:** 1.0.0  
-**Дата:** 08.02.2026  
+**Статус:** ✅ Готово к выкладке после smoke test в amoCRM
+**Версия:** 1.1.0
+**Дата:** 17.07.2026
 **Разработчик:** Cline AI Assistant

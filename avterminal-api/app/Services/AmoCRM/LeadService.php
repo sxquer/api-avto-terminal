@@ -340,31 +340,36 @@ class LeadService
             $leadId = $lead->getId();
         }
 
-        // 2. Проверить статус (регистронезависимо)
-        $expectedStatus = 'тд зарегистрирована';
+        // 2. Определить поддерживаемое событие (регистронезависимо)
         $receivedStatusLower = mb_strtolower(trim($status), 'UTF-8');
-        
-        if ($receivedStatusLower !== $expectedStatus) {
-            throw new \Exception("Статус '{$status}' не поддерживается. Ожидается: 'ТД Зарегистрирована'");
+
+        $statusType = match ($receivedStatusLower) {
+            'тд зарегистрирована' => 'registration',
+            'транзит завершен' => 'completion',
+            default => null,
+        };
+
+        if ($statusType === null) {
+            throw new \Exception(
+                "Статус '{$status}' не поддерживается. Ожидается: 'ТД Зарегистрирована' или 'Транзит завершен'"
+            );
         }
 
-        // 3. Найти ID статуса в конфигурации (регистронезависимо)
-        $statusEnumId = null;
+        // 3. Найти канонический текст статуса в конфигурации (регистронезависимо)
         $statusFullText = null;
         $statusConfig = config('amocrm.fields.status_td.values');
         
         if ($statusConfig) {
-            foreach ($statusConfig as $configText => $enumId) {
-                if (mb_strtolower($configText, 'UTF-8') === $expectedStatus) {
-                    $statusEnumId = $enumId;
+            foreach (array_keys($statusConfig) as $configText) {
+                if (mb_strtolower($configText, 'UTF-8') === $receivedStatusLower) {
                     $statusFullText = $configText;
                     break;
                 }
             }
         }
 
-        if (!$statusEnumId) {
-            throw new \Exception("Статус ТД не найден в конфигурации");
+        if ($statusFullText === null) {
+            throw new \Exception("Статус ТД '{$status}' не найден в конфигурации");
         }
 
         // 4. Конвертировать дату в timestamp
@@ -373,9 +378,11 @@ class LeadService
         // 5. Получить текущий статус сделки
         $currentStatusId = $lead->getStatusId();
 
-        // 6. Проверить, нужно ли менять статус сделки
+        // 6. Стадия меняется только при регистрации ТД. Завершение транзита
+        // в основной воронке обновляет поля, но не перемещает карточку.
         $tdStatusesToChange = config('amocrm.td_statuses_to_change', []);
-        $shouldChangeStatus = in_array($currentStatusId, $tdStatusesToChange);
+        $shouldChangeStatus = $statusType === 'registration'
+            && in_array($currentStatusId, $tdStatusesToChange, true);
         $stageChanged = false;
 
         // 7. Логирование начала обработки
@@ -384,17 +391,25 @@ class LeadService
             'vin' => $vinNum,
             'td_num' => $tdNum,
             'status' => $statusFullText,
+            'status_type' => $statusType,
             'status_date' => $statusDate,
             'current_stage_id' => $currentStatusId,
             'should_change_status' => $shouldChangeStatus
         ]);
 
-        // 8. Подготовить поля для обновления
-        $fieldsToUpdate = [
-            ['field_key' => 'nomer_td', 'value' => $tdNum, 'type' => 'text'],
-            ['field_key' => 'status_td', 'value' => $statusFullText, 'type' => 'select'],
-            ['field_key' => 'registration_date_td', 'value' => $dateTimestamp, 'type' => 'datetime'],
-        ];
+        // 8. Подготовить поля для конкретного события
+        if ($statusType === 'registration') {
+            $fieldsToUpdate = [
+                ['field_key' => 'nomer_td', 'value' => $tdNum, 'type' => 'text'],
+                ['field_key' => 'status_td', 'value' => $statusFullText, 'type' => 'select'],
+                ['field_key' => 'registration_date_td', 'value' => $dateTimestamp, 'type' => 'datetime'],
+            ];
+        } else {
+            $fieldsToUpdate = [
+                ['field_key' => 'status_td', 'value' => $statusFullText, 'type' => 'select'],
+                ['field_key' => 'completion_date_td', 'value' => $dateTimestamp, 'type' => 'datetime'],
+            ];
+        }
 
         // 9. Обновить кастомные поля (без переноса в историю)
         app(CustomFieldService::class)->updateLeadCustomFields(
@@ -405,7 +420,7 @@ class LeadService
 
         Log::info("TD status update: поля обновлены", [
             'lead_id' => $leadId,
-            'fields_updated' => ['nomer_td', 'status_td', 'registration_date_td']
+            'fields_updated' => array_column($fieldsToUpdate, 'field_key')
         ]);
 
         // 10. Изменить статус сделки, если требуется
@@ -428,9 +443,14 @@ class LeadService
                 ]);
             }
         } else {
-            Log::info("TD status update: статус сделки НЕ изменен (не в списке td_statuses_to_change)", [
+            $reason = $statusType === 'completion'
+                ? 'завершение транзита не меняет этап основной воронки'
+                : 'текущий этап не входит в td_statuses_to_change';
+
+            Log::info("TD status update: статус сделки НЕ изменен", [
                 'lead_id' => $leadId,
-                'current_status_id' => $currentStatusId
+                'current_status_id' => $currentStatusId,
+                'reason' => $reason,
             ]);
         }
 

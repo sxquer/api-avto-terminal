@@ -228,6 +228,7 @@ class AmoCRMController extends Controller
      *   "status": "ТД Зарегистрирована",
      *   "statusDate": "2025-10-15 16:27:11"
      * }
+     * Также поддерживается статус "Транзит завершен".
      * 
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse

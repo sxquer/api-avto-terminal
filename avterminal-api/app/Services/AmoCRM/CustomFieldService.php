@@ -265,7 +265,14 @@ class CustomFieldService
     private function createSelectValueCollection(mixed $value): \AmoCRM\Models\CustomFieldsValues\ValueCollections\SelectCustomFieldValueCollection
     {
         $valueModel = new \AmoCRM\Models\CustomFieldsValues\ValueModels\SelectCustomFieldValueModel();
-        $valueModel->setEnumId($value);
+
+        if (is_int($value)) {
+            $valueModel->setEnumId($value);
+        } else {
+            // amoCRM сопоставляет точный текст с существующим значением списка.
+            $valueModel->setValue((string) $value);
+        }
+
         return (new \AmoCRM\Models\CustomFieldsValues\ValueCollections\SelectCustomFieldValueCollection())->add($valueModel);
     }
 
