@@ -22,6 +22,7 @@ class LeadServiceTDCompletionTest extends TestCase
     {
         $lead = (new LeadModel)
             ->setId(42)
+            ->setPipelineId(7523034)
             // Этот этап входит в td_statuses_to_change, но при завершении
             // транзита карточка основной воронки всё равно не должна двигаться.
             ->setStatusId(62360714);
@@ -65,6 +66,7 @@ class LeadServiceTDCompletionTest extends TestCase
     {
         $lead = (new LeadModel)
             ->setId(43)
+            ->setPipelineId(7523034)
             ->setStatusId(99999999);
 
         $customFieldService = Mockery::mock(CustomFieldService::class);

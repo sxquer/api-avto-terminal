@@ -26,10 +26,10 @@ class LeadService
         $leadArray = $lead->toArray();
 
         if (isset($leadArray['contacts'])) {
-            $contactIds = array_map(fn($contact) => $contact['id'], $leadArray['contacts']);
+            $contactIds = array_map(fn ($contact) => $contact['id'], $leadArray['contacts']);
 
-            if (!empty($contactIds)) {
-                $filter = new ContactsFilter();
+            if (! empty($contactIds)) {
+                $filter = new ContactsFilter;
                 $filter->setIds($contactIds);
                 $contacts = $apiClient->contacts()->get($filter);
                 $leadArray['contacts'] = $contacts->toArray();
@@ -63,7 +63,7 @@ class LeadService
         return [
             'lead_id' => $leadArray['id'],
             'contact_id' => $contact['id'],
-            'custom_fields' => $allCustomFields
+            'custom_fields' => $allCustomFields,
         ];
     }
 
@@ -73,20 +73,40 @@ class LeadService
     public function findLeadByVin(string $vin): ?LeadModel
     {
         $apiClient = $this->amoCRMService->getClient();
-        $filter = new LeadsFilter();
+        $filter = new LeadsFilter;
+
+        $pipelineIds = array_values(array_filter(array_map(
+            static fn (array $pipeline): ?int => isset($pipeline['id']) ? (int) $pipeline['id'] : null,
+            config('amocrm.pipelines', [])
+        )));
+
+        if ($pipelineIds === []) {
+            throw new \Exception('В конфигурации не заданы воронки для поиска сделки');
+        }
 
         // Фильтруем по кастомному полю VIN (ID: 808681)
         $filter->setCustomFieldsValues([
-            808681 => $vin
+            808681 => $vin,
         ]);
-        $filter->setPipelineIds([
-            7523034
-        ]);
+        $filter->setPipelineIds($pipelineIds);
 
         $leads = $apiClient->leads()->get($filter);
 
         if ($leads->count() === 0) {
             return null;
+        }
+
+        if ($leads->count() > 1) {
+            $leadIds = array_map(
+                static fn (LeadModel $lead): int => $lead->getId(),
+                $leads->all()
+            );
+
+            throw new \Exception(sprintf(
+                'Найдено несколько сделок с VIN %s в подключенных воронках: %s',
+                $vin,
+                implode(', ', $leadIds)
+            ));
         }
 
         return $leads->first();
@@ -95,22 +115,31 @@ class LeadService
     /**
      * Обновить статус сделки
      *
-     * @param int $leadId ID лида
-     * @param string $statusKey Ключ статуса из конфига ('ptd/dt', 'vipusk', 'svh')
+     * @param  int  $leadId  ID лида
+     * @param  string  $statusKey  Ключ статуса из конфига ('ptd/dt', 'vipusk', 'svh')
      * @return LeadModel Обновленный лид
+     *
      * @throws \Exception
      */
     public function updateLeadStatus(int $leadId, string $statusKey): LeadModel
     {
         $statusId = config("amocrm.statuses.{$statusKey}");
 
-        if (!$statusId) {
+        if (! $statusId) {
             throw new \Exception("Статус {$statusKey} не найден в конфигурации");
         }
 
+        return $this->updateLeadStatusById($leadId, (int) $statusId);
+    }
+
+    /**
+     * Обновить этап сделки по ID статуса amoCRM.
+     */
+    public function updateLeadStatusById(int $leadId, int $statusId): LeadModel
+    {
         $apiClient = $this->amoCRMService->getClient();
 
-        $lead = (new LeadModel())
+        $lead = (new LeadModel)
             ->setId($leadId)
             ->setStatusId($statusId);
 
@@ -120,14 +149,14 @@ class LeadService
     /**
      * Найти ID статуса по подстроке (игнорируя цифры в скобках)
      *
-     * @param string $statusText Текст статуса без скобок (например, "выпуск с уплатой")
+     * @param  string  $statusText  Текст статуса без скобок (например, "выпуск с уплатой")
      * @return array|null Массив с ключами 'id' (enum_id) и 'full_text' (полный текст из конфига) или null
      */
     public function findStatusIdBySubstring(string $statusText): ?array
     {
         $statusConfig = config('amocrm.fields.status_dt.values');
 
-        if (!$statusConfig) {
+        if (! $statusConfig) {
             return null;
         }
 
@@ -143,7 +172,7 @@ class LeadService
             if ($configTextLower === $searchText) {
                 return [
                     'id' => $enumId,
-                    'full_text' => $configText
+                    'full_text' => $configText,
                 ];
             }
         }
@@ -154,12 +183,13 @@ class LeadService
     /**
      * Обновить сделку на основе статуса ДТ
      *
-     * @param string $vinNum VIN номер
-     * @param string $pdNum Номер ДТ
-     * @param string $status Текстовый статус
-     * @param string $statusDate Дата статуса в формате "dd.mm.yyyy hh:mm"
-     * @param bool $testMode Тестовый режим (всегда возвращает ID 25147637)
+     * @param  string  $vinNum  VIN номер
+     * @param  string  $pdNum  Номер ДТ
+     * @param  string  $status  Текстовый статус
+     * @param  string  $statusDate  Дата статуса в формате "dd.mm.yyyy hh:mm"
+     * @param  bool  $testMode  Тестовый режим (всегда возвращает ID 25147637)
      * @return array Результат операции
+     *
      * @throws \Exception
      */
     public function updateLeadFromDtStatus(
@@ -176,22 +206,46 @@ class LeadService
             $lead = $this->amoCRMService->getClient()->leads()->getOne($leadId);
         } else {
             $lead = $this->findLeadByVin($vinNum);
-            if (!$lead) {
+            if (! $lead) {
                 throw new \Exception("Сделка с VIN {$vinNum} не найдена");
             }
             $leadId = $lead->getId();
         }
 
+        $pipelineKey = $this->getPipelineKey($lead);
+
         $moveToHistory = false;
 
         // 2. Найти ID статуса по подстроке
         $statusData = $this->findStatusIdBySubstring($status);
-        if (!$statusData) {
+        if (! $statusData) {
             throw new \Exception("Статус '{$status}' не найден в конфигурации");
         }
 
-        $statusEnumId = $statusData['id'];
         $statusFullText = $statusData['full_text'];
+
+        $isRegistrationStatus = mb_stripos($statusFullText, 'регистрация ПТД') !== false;
+        $isReleaseWithoutPaymentStatus = mb_stripos($statusFullText, 'выпуск без уплаты') !== false;
+        $isReleaseWithPaymentStatus = mb_stripos($statusFullText, 'выпуск с уплатой') !== false;
+
+        if ($pipelineKey === 'transit_russia') {
+            return $this->ignoredStatusResult($lead, $pipelineKey, 'Статусы ДТ не обрабатываются в воронке «Транзит по РФ»');
+        }
+
+        if ($pipelineKey === 'office_moscow'
+            && ! $isRegistrationStatus
+            && ! $isReleaseWithPaymentStatus) {
+            return $this->ignoredStatusResult($lead, $pipelineKey, 'Этот статус ДТ не обрабатывается в воронке «Офис Москва»');
+        }
+
+        $currentStatusId = $lead->getStatusId();
+        $officeReleaseStatusId = $this->getPipelineStatusId('office_moscow', 'dt_release');
+
+        if ($pipelineKey === 'office_moscow'
+            && $isRegistrationStatus
+            && $currentStatusId === $officeReleaseStatusId) {
+            return $this->ignoredStatusResult($lead, $pipelineKey, 'Регистрация ДТ не откатывает сделку с этапа выпуска');
+        }
 
         // 3. Проверить номер ДТ - правило 2.4.0
         $customFieldsValues = $lead->getCustomFieldsValues();
@@ -211,60 +265,67 @@ class LeadService
         // 4. Конвертировать дату из формата "dd.mm.yyyy hh:mm" в timestamp
         $dateTimestamp = $this->parseDateString($statusDate);
 
-        // 5. Получить текущий статус сделки для проверки "защищенных" этапов
-        $currentStatusId = $lead->getStatusId();
-
-        // 6. Проверить на "защищенные" этапы - правило защиты от излишнего "отката"
+        // 5. Проверить на "защищенные" этапы - правило защиты от излишнего "отката"
         $restrictedStatuses = [
             config('amocrm.statuses.svh_do2', 64976646),
             config('amocrm.statuses.epts', 62360978),
             config('amocrm.statuses.oplata_payment', 64577706),
             config('amocrm.statuses.oplateno_paid', 64577710),
             config('amocrm.statuses.yspshno_realizovano', 142),
-            config('amocrm.statuses.zakryto_ne_realizovano', 143)
+            config('amocrm.statuses.zakryto_ne_realizovano', 143),
         ];
 
-        $isRestrictedStage = in_array($currentStatusId, $restrictedStatuses);
+        $isRestrictedStage = $pipelineKey === 'main'
+            && in_array($currentStatusId, $restrictedStatuses, true);
         $stageProtectionActive = false;
 
         // Логировать защиты стадий
         if ($isRestrictedStage) {
-            Log::info("DT status update: защита стадии активирована", [
+            Log::info('DT status update: защита стадии активирована', [
                 'lead_id' => $leadId,
                 'current_stage_id' => $currentStatusId,
                 'status' => $statusFullText,
                 'pd_num' => $pdNum,
-                'stage_not_changed' => true
+                'stage_not_changed' => true,
             ]);
         }
 
-        // 7. Подготовить поля для обновления и определить стадию
+        // 6. Подготовить поля для обновления и определить стадию
         $fieldsToUpdate = [
             ['field_key' => 'nomer_dt', 'value' => $pdNum, 'type' => 'text'],
             ['field_key' => 'status_dt', 'value' => $statusFullText, 'type' => 'select'],
         ];
 
         $stageKey = null;
+        $targetStatusId = null;
         $highlightRed = false;
 
         // Определяем какие поля заполнять и на какую стадию переводить
         // Правило 2.4.1 - Регистрация ПТД
-        if (mb_stripos($statusFullText, 'регистрация ПТД') !== false) {
+        if ($isRegistrationStatus) {
             $fieldsToUpdate[] = ['field_key' => 'registration_date', 'value' => $dateTimestamp, 'type' => 'datetime'];
-            $stageKey = $isRestrictedStage ? null : 'ptd/dt';
+            if (! $isRestrictedStage) {
+                $stageKey = 'dt_registration';
+                $targetStatusId = $this->getPipelineStatusId($pipelineKey, $stageKey);
+            }
         }
         // Правило 2.4.2 - Выпуск без уплаты или с уплатой
-        elseif (mb_stripos($statusFullText, 'выпуск без уплаты') !== false ||
-                mb_stripos($statusFullText, 'выпуск с уплатой') !== false) {
+        elseif ($isReleaseWithoutPaymentStatus || $isReleaseWithPaymentStatus) {
             $fieldsToUpdate[] = ['field_key' => 'vipusk_date', 'value' => $dateTimestamp, 'type' => 'datetime'];
-            $stageKey = $isRestrictedStage ? null : 'vipusk';
+            if (! $isRestrictedStage) {
+                $stageKey = 'dt_release';
+                $targetStatusId = $this->getPipelineStatusId($pipelineKey, $stageKey);
+            }
         }
         // Правило 2.4.3 - Отказы
         elseif (mb_stripos($statusFullText, 'отказ в выпуске товаров') !== false ||
                 mb_stripos($statusFullText, 'выпуск товаров аннулирован при отзыве ПТД') !== false ||
                 mb_stripos($statusFullText, 'отказ в разрешении') !== false) {
             $fieldsToUpdate[] = ['field_key' => 'refuse_date', 'value' => $dateTimestamp, 'type' => 'datetime'];
-            $stageKey = $isRestrictedStage ? null : 'ptd/dt';
+            if (! $isRestrictedStage) {
+                $stageKey = 'dt_registration';
+                $targetStatusId = $this->getPipelineStatusId($pipelineKey, $stageKey);
+            }
             $highlightRed = true;
             if ($isRestrictedStage) {
                 $stageProtectionActive = true;
@@ -273,7 +334,10 @@ class LeadService
         // Правило 2.4.4 - Ожидание (требуется уплата, ожидание решения)
         elseif (mb_stripos($statusFullText, 'требуется уплата') !== false ||
                 mb_stripos($statusFullText, 'выпуск разрешен, ожидание решения по временному ввозу') !== false) {
-            $stageKey = $isRestrictedStage ? null : 'ptd/dt';
+            if (! $isRestrictedStage) {
+                $stageKey = 'dt_registration';
+                $targetStatusId = $this->getPipelineStatusId($pipelineKey, $stageKey);
+            }
             $highlightRed = true;
             if ($isRestrictedStage) {
                 $stageProtectionActive = true;
@@ -285,39 +349,43 @@ class LeadService
             $fieldsToUpdate[] = ['field_key' => 'color_field_id', 'value' => 'Красный', 'type' => 'select'];
         }
 
-        // 8. Обновить кастомные поля (с переносом в историю если нужно)
+        // 7. Обновить кастомные поля (с переносом в историю если нужно)
         app(CustomFieldService::class)->updateLeadCustomFields(
             $leadId,
             $fieldsToUpdate,
             $moveToHistory
         );
 
-        // 9. Обновить стадию сделки (только если не защищена)
-        if ($stageKey) {
-            $this->updateLeadStatus($leadId, $stageKey);
+        // 8. Обновить этап сделки (только если он отличается от текущего)
+        $stageChanged = false;
+        if ($targetStatusId !== null && $currentStatusId !== $targetStatusId) {
+            $this->updateLeadStatusById($leadId, $targetStatusId);
+            $stageChanged = true;
         }
 
         return [
             'lead_id' => $leadId,
             'status' => 'OK',
+            'pipeline' => $pipelineKey,
             'stage' => $stageKey,
             'highlight_red' => $highlightRed,
             'moved_to_history' => $moveToHistory,
             'stage_protection_active' => $stageProtectionActive,
             'current_stage_id' => $currentStatusId,
-            'stage_changed' => !is_null($stageKey)
+            'stage_changed' => $stageChanged,
         ];
     }
 
     /**
      * Обновить сделку на основе статуса транзитного ДТ
      *
-     * @param string $vinNum VIN номер
-     * @param string $tdNum Номер транзитного ДТ
-     * @param string $status Текстовый статус (регистронезависимый)
-     * @param string $statusDate Дата статуса в формате "dd.mm.yyyy hh:mm" или "yyyy-mm-dd hh:mm:ss"
-     * @param bool $testMode Тестовый режим (всегда возвращает ID 25147637)
+     * @param  string  $vinNum  VIN номер
+     * @param  string  $tdNum  Номер транзитного ДТ
+     * @param  string  $status  Текстовый статус (регистронезависимый)
+     * @param  string  $statusDate  Дата статуса в формате "dd.mm.yyyy hh:mm" или "yyyy-mm-dd hh:mm:ss"
+     * @param  bool  $testMode  Тестовый режим (всегда возвращает ID 25147637)
      * @return array Результат операции
+     *
      * @throws \Exception
      */
     public function updateLeadFromTDStatus(
@@ -334,11 +402,13 @@ class LeadService
             $lead = $this->amoCRMService->getClient()->leads()->getOne($leadId);
         } else {
             $lead = $this->findLeadByVin($vinNum);
-            if (!$lead) {
+            if (! $lead) {
                 throw new \Exception("Сделка с VIN {$vinNum} не найдена");
             }
             $leadId = $lead->getId();
         }
+
+        $pipelineKey = $this->getPipelineKey($lead);
 
         // 2. Определить поддерживаемое событие (регистронезависимо)
         $receivedStatusLower = mb_strtolower(trim($status), 'UTF-8');
@@ -358,7 +428,7 @@ class LeadService
         // 3. Найти канонический текст статуса в конфигурации (регистронезависимо)
         $statusFullText = null;
         $statusConfig = config('amocrm.fields.status_td.values');
-        
+
         if ($statusConfig) {
             foreach (array_keys($statusConfig) as $configText) {
                 if (mb_strtolower($configText, 'UTF-8') === $receivedStatusLower) {
@@ -378,23 +448,47 @@ class LeadService
         // 5. Получить текущий статус сделки
         $currentStatusId = $lead->getStatusId();
 
-        // 6. Стадия меняется только при регистрации ТД. Завершение транзита
-        // в основной воронке обновляет поля, но не перемещает карточку.
+        if ($pipelineKey === 'office_moscow') {
+            return $this->ignoredStatusResult($lead, $pipelineKey, 'Статусы транзитной ДТ не обрабатываются в воронке «Офис Москва»');
+        }
+
+        $transitClosedStatusId = $this->getPipelineStatusId('transit_russia', 'td_completion');
+        if ($pipelineKey === 'transit_russia'
+            && $statusType === 'registration'
+            && $currentStatusId === $transitClosedStatusId) {
+            return $this->ignoredStatusResult($lead, $pipelineKey, 'Регистрация ТД не открывает уже завершенный транзит');
+        }
+
+        // 6. Определить целевой этап с учетом текущей воронки.
         $tdStatusesToChange = config('amocrm.td_statuses_to_change', []);
-        $shouldChangeStatus = $statusType === 'registration'
-            && in_array($currentStatusId, $tdStatusesToChange, true);
+        $targetStatusId = null;
+
+        if ($pipelineKey === 'main'
+            && $statusType === 'registration'
+            && in_array($currentStatusId, $tdStatusesToChange, true)) {
+            $targetStatusId = $this->getPipelineStatusId('main', 'td_registration');
+        } elseif ($pipelineKey === 'transit_russia') {
+            $targetStatusId = $this->getPipelineStatusId(
+                $pipelineKey,
+                $statusType === 'registration' ? 'td_registration' : 'td_completion'
+            );
+        }
+
+        $shouldChangeStatus = $targetStatusId !== null && $currentStatusId !== $targetStatusId;
         $stageChanged = false;
 
         // 7. Логирование начала обработки
-        Log::info("TD status update: начало обработки", [
+        Log::info('TD status update: начало обработки', [
             'lead_id' => $leadId,
             'vin' => $vinNum,
             'td_num' => $tdNum,
             'status' => $statusFullText,
             'status_type' => $statusType,
+            'pipeline' => $pipelineKey,
             'status_date' => $statusDate,
             'current_stage_id' => $currentStatusId,
-            'should_change_status' => $shouldChangeStatus
+            'target_stage_id' => $targetStatusId,
+            'should_change_status' => $shouldChangeStatus,
         ]);
 
         // 8. Подготовить поля для конкретного события
@@ -418,36 +512,29 @@ class LeadService
             false // Для ТД истории нет
         );
 
-        Log::info("TD status update: поля обновлены", [
+        Log::info('TD status update: поля обновлены', [
             'lead_id' => $leadId,
-            'fields_updated' => array_column($fieldsToUpdate, 'field_key')
+            'fields_updated' => array_column($fieldsToUpdate, 'field_key'),
         ]);
 
         // 10. Изменить статус сделки, если требуется
         if ($shouldChangeStatus) {
-            $tdTransitStatusId = config('amocrm.td_transit_status');
-            
-            if ($tdTransitStatusId) {
-                $apiClient = $this->amoCRMService->getClient();
-                $leadModel = (new LeadModel())
-                    ->setId($leadId)
-                    ->setStatusId($tdTransitStatusId);
-                
-                $apiClient->leads()->updateOne($leadModel);
-                $stageChanged = true;
+            $this->updateLeadStatusById($leadId, $targetStatusId);
+            $stageChanged = true;
 
-                Log::info("TD status update: статус сделки изменен", [
-                    'lead_id' => $leadId,
-                    'old_status_id' => $currentStatusId,
-                    'new_status_id' => $tdTransitStatusId
-                ]);
-            }
+            Log::info('TD status update: статус сделки изменен', [
+                'lead_id' => $leadId,
+                'old_status_id' => $currentStatusId,
+                'new_status_id' => $targetStatusId,
+            ]);
         } else {
-            $reason = $statusType === 'completion'
-                ? 'завершение транзита не меняет этап основной воронки'
-                : 'текущий этап не входит в td_statuses_to_change';
+            $reason = match (true) {
+                $currentStatusId === $targetStatusId => 'сделка уже находится на целевом этапе',
+                $pipelineKey === 'main' && $statusType === 'completion' => 'завершение транзита не меняет этап основной воронки',
+                default => 'текущий этап не входит в разрешенный список перехода',
+            };
 
-            Log::info("TD status update: статус сделки НЕ изменен", [
+            Log::info('TD status update: статус сделки НЕ изменен', [
                 'lead_id' => $leadId,
                 'current_status_id' => $currentStatusId,
                 'reason' => $reason,
@@ -458,9 +545,68 @@ class LeadService
         return [
             'lead_id' => $leadId,
             'status' => 'OK',
+            'pipeline' => $pipelineKey,
             'stage_changed' => $stageChanged,
             'current_stage_id' => $currentStatusId,
-            'new_stage_id' => $stageChanged ? config('amocrm.td_transit_status') : null,
+            'new_stage_id' => $stageChanged ? $targetStatusId : null,
+        ];
+    }
+
+    /**
+     * Определить настроенную воронку, в которой находится сделка.
+     */
+    private function getPipelineKey(LeadModel $lead): string
+    {
+        $pipelineId = $lead->getPipelineId();
+
+        foreach (config('amocrm.pipelines', []) as $pipelineKey => $pipeline) {
+            if ((int) ($pipeline['id'] ?? 0) === $pipelineId) {
+                return $pipelineKey;
+            }
+        }
+
+        throw new \Exception("Воронка {$pipelineId} не поддерживается");
+    }
+
+    /**
+     * Получить ID этапа внутри настроенной воронки.
+     */
+    private function getPipelineStatusId(string $pipelineKey, string $statusKey): int
+    {
+        $statusId = config("amocrm.pipelines.{$pipelineKey}.statuses.{$statusKey}");
+
+        if (! $statusId) {
+            throw new \Exception("Этап {$statusKey} для воронки {$pipelineKey} не задан в конфигурации");
+        }
+
+        return (int) $statusId;
+    }
+
+    /**
+     * Вернуть успешный результат для события, которое не относится к этой воронке.
+     */
+    private function ignoredStatusResult(LeadModel $lead, string $pipelineKey, string $reason): array
+    {
+        Log::info('Статус проигнорирован для текущей воронки', [
+            'lead_id' => $lead->getId(),
+            'pipeline' => $pipelineKey,
+            'current_stage_id' => $lead->getStatusId(),
+            'reason' => $reason,
+        ]);
+
+        return [
+            'lead_id' => $lead->getId(),
+            'status' => 'OK',
+            'pipeline' => $pipelineKey,
+            'ignored' => true,
+            'ignore_reason' => $reason,
+            'stage' => null,
+            'highlight_red' => false,
+            'moved_to_history' => false,
+            'stage_protection_active' => false,
+            'current_stage_id' => $lead->getStatusId(),
+            'stage_changed' => false,
+            'new_stage_id' => null,
         ];
     }
 
@@ -468,8 +614,9 @@ class LeadService
      * Парсинг строки даты в timestamp
      * Поддерживает форматы: "dd.mm.yyyy hh:mm", "dd.mm.yyyy hh.mm" и "yyyy-mm-dd hh:mm:ss"
      *
-     * @param string $dateString Строка даты
+     * @param  string  $dateString  Строка даты
      * @return int Timestamp
+     *
      * @throws \Exception
      */
     private function parseDateString(string $dateString): int
@@ -482,7 +629,7 @@ class LeadService
             $hour = $matches[4];
             $minute = $matches[5];
 
-            $timestamp = mktime((int)$hour - 10, (int)$minute, 0, (int)$month, (int)$day, (int)$year);
+            $timestamp = mktime((int) $hour - 10, (int) $minute, 0, (int) $month, (int) $day, (int) $year);
 
             if ($timestamp === false) {
                 throw new \Exception("Неверный формат даты: {$dateString}");
@@ -500,7 +647,7 @@ class LeadService
             $minute = $matches[5];
             $second = $matches[6];
 
-            $timestamp = mktime((int)$hour - 10, (int)$minute, (int)$second, (int)$month, (int)$day, (int)$year);
+            $timestamp = mktime((int) $hour - 10, (int) $minute, (int) $second, (int) $month, (int) $day, (int) $year);
 
             if ($timestamp === false) {
                 throw new \Exception("Неверный формат даты: {$dateString}");
@@ -532,7 +679,7 @@ class LeadService
                 $processedValue = $value['value'];
 
                 // Форматирование даты в YYYY-MM-DD формат с коррекцией на timezone AmoCRM UTC+10
-                if (in_array($field['field_type'], ['date', 'birthday']) && !empty($processedValue)) {
+                if (in_array($field['field_type'], ['date', 'birthday']) && ! empty($processedValue)) {
                     $timestamp = strtotime($processedValue);
                     $timestamp += 10 * 3600; // корректировка +10 часов для совпадения с отображением в AmoCRM
                     $processedValue = date('Y-m-d', $timestamp);
@@ -540,7 +687,7 @@ class LeadService
 
                 // Форматирование серии паспорта (4 цифры разделить по 2 пробелом)
                 if ($field['field_name'] === 'Серия паспорта' && strlen($processedValue) === 4 && is_numeric($processedValue)) {
-                    $processedValue = substr($processedValue, 0, 2) . ' ' . substr($processedValue, 2, 2);
+                    $processedValue = substr($processedValue, 0, 2).' '.substr($processedValue, 2, 2);
                 }
 
                 // Все значения должны быть написаны заглавными буквами

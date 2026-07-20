@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Альта → amoCRM: статус «Транзит завершен»</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f6f8;
+      --paper: #ffffff;
+      --ink: #17202a;
+      --muted: #66717d;
+      --line: #dbe1e7;
+      --blue: #1456d9;
+      --blue-soft: #edf3ff;
+      --green: #08783e;
+      --green-soft: #eaf8f0;
+      --amber: #865600;
+      --amber-soft: #fff6dd;
+      --red: #a12622;
+      --red-soft: #fff0ef;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    }
+
+    main {
+      width: min(1120px, calc(100% - 32px));
+      margin: 32px auto;
+      padding: 36px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: 0 12px 32px rgba(23, 32, 42, .07);
+    }
+
+    h1, h2 { line-height: 1.2; }
+    h1 { margin: 0 0 8px; font-size: clamp(26px, 4vw, 38px); }
+    h2 { margin: 34px 0 14px; font-size: 21px; }
+    p { margin: 8px 0; }
+    ul { margin: 10px 0; padding-left: 21px; }
+    li + li { margin-top: 5px; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { font-size: .92em; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 16px 0 24px;
+    }
+
+    .badge {
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: var(--blue-soft);
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .note {
+      margin: 18px 0;
+      padding: 14px 16px;
+      border-left: 4px solid var(--blue);
+      border-radius: 8px;
+      background: var(--blue-soft);
+    }
+
+    .note.warning {
+      border-color: var(--amber);
+      background: var(--amber-soft);
+    }
+
+    pre {
+      margin: 12px 0;
+      padding: 16px;
+      overflow: auto;
+      border-radius: 10px;
+      background: #111820;
+      color: #eef5ff;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .table-wrap { overflow-x: auto; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th, td {
+      padding: 12px 11px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th { background: #f5f7f9; font-size: 13px; }
+    td:first-child { width: 46px; font-weight: 700; }
+
+    .ok, .error {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .ok { color: var(--green); background: var(--green-soft); }
+    .error { color: var(--red); background: var(--red-soft); }
+
+    .muted { color: var(--muted); }
+
+    footer {
+      margin-top: 32px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 720px) {
+      main { width: 100%; margin: 0; padding: 24px 18px; border: 0; border-radius: 0; }
+    }
+
+    @media print {
+      body { background: #fff; }
+      main { width: 100%; margin: 0; padding: 0; border: 0; box-shadow: none; }
+      pre { white-space: pre-wrap; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Статус «Транзит завершен»</h1>
+    <p class="muted">Краткое описание изменений для разработчиков Альты</p>
+    <div class="meta">
+      <span class="badge">Коммит 0f38d06</span>
+      <span class="badge">POST /api/amocrm/td-status</span>
+      <span class="badge">Без нового endpoint</span>
+    </div>
+  </header>
+
+  <section>
+    <h2>Что изменилось</h2>
+    <ul>
+      <li>Существующий <code>/td-status</code> теперь принимает второй статус: <code>Транзит завершен</code>.</li>
+      <li>Запрос по-прежнему использует <code>tdNum</code>. Поле <code>pdNum</code> относится к отдельному <code>/dt-status</code>.</li>
+      <li>В amoCRM заполняются «Статус ТД» значением <code>Транзит завершен</code> и дата завершения в поле ID <code>990795</code>.</li>
+      <li>Значение списка передаётся точным текстом, без enum ID. В amoCRM такой вариант списка уже должен существовать.</li>
+      <li>В основной воронке карточка не перемещается. Номер ТД и дата регистрации ТД не изменяются.</li>
+    </ul>
+    <div class="note warning">
+      Новые воронки «Транзит по РФ» и «Офис МСК» в этот коммит не входят. Логика <code>/dt-status</code> не изменялась.
+    </div>
+  </section>
+
+  <section>
+    <h2>Запрос на завершение транзита</h2>
+    <p>Заголовки: <code>Content-Type: application/json</code> и действующий <code>Authorization: Bearer …</code>.</p>
+    <pre><code>{
+  "vinNum": "LSGXC8356MV107322",
+  "tdNum": "10716060/170726/TD000001",
+  "status": "Транзит завершен",
+  "statusDate": "2026-07-17 12:24:26"
+}</code></pre>
+    <p>Успешный HTTP-ответ:</p>
+    <pre><code>HTTP 200
+{
+  "message": "OK"
+}</code></pre>
+    <p class="muted">Формат даты: <code>Y-m-d H:i:s</code>. Сохраняется действующая коррекция времени UTC+10 → UTC.</p>
+  </section>
+
+  <section>
+    <h2>Приёмочные тесты</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>№</th>
+            <th>Сценарий</th>
+            <th>Ожидаемый HTTP-результат</th>
+            <th>Ожидаемый результат в amoCRM</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td>Корректный запрос со статусом <code>Транзит завершен</code></td>
+            <td><span class="ok">200 OK</span><br><code>{"message":"OK"}</code></td>
+            <td>«Статус ТД» = «Транзит завершен»; поле <code>990795</code> заполнено; этап сделки не изменён.</td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td>Статус в другом регистре: <code>транзит завершен</code></td>
+            <td><span class="ok">200 OK</span></td>
+            <td>Результат полностью совпадает с тестом №1.</td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td>Повтор того же запроса</td>
+            <td><span class="ok">200 OK</span></td>
+            <td>Поля сохраняют те же значения; этап сделки не меняется.</td>
+          </tr>
+          <tr>
+            <td>4</td>
+            <td>Существующий статус <code>ТД Зарегистрирована</code></td>
+            <td><span class="ok">200 OK</span></td>
+            <td>Старая логика сохранена: записываются номер, статус и дата регистрации; переход на «Транзит» выполняется только из разрешённых этапов.</td>
+          </tr>
+          <tr>
+            <td>5</td>
+            <td>Не передан <code>tdNum</code> или другое обязательное поле</td>
+            <td><span class="error">422</span><br>Ответ с <code>Validation failed</code> и перечнем полей.</td>
+            <td>Сделка не изменяется.</td>
+          </tr>
+          <tr>
+            <td>6</td>
+            <td>Неизвестный <code>status</code></td>
+            <td><span class="error">500</span><br>Ошибка о неподдерживаемом статусе.</td>
+            <td>Сделка не изменяется.</td>
+          </tr>
+          <tr>
+            <td>7</td>
+            <td>Сделка с переданным VIN не найдена</td>
+            <td><span class="error">500</span><br><code>Сделка с VIN … не найдена</code></td>
+            <td>Данные не изменяются.</td>
+          </tr>
+          <tr>
+            <td>8</td>
+            <td>Нет Bearer-токена или токен неверный</td>
+            <td><span class="error">401</span></td>
+            <td>Запрос не обрабатывается.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    Документ относится только к изменениям коммита <code>0f38d06</code>. Перед боевой отправкой рекомендуется выполнить тест на одной согласованной сделке.
+  </footer>
+</main>
+</body>
+</html>

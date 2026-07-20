@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Альта → amoCRM: новые воронки — срез и live-тесты</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3f5f7;
+      --paper: #ffffff;
+      --ink: #18202a;
+      --muted: #657180;
+      --line: #dce2e8;
+      --blue: #1557d6;
+      --blue-soft: #edf3ff;
+      --green: #08783e;
+      --green-soft: #eaf8f0;
+      --amber: #855800;
+      --amber-soft: #fff6dd;
+      --red: #a12622;
+      --red-soft: #fff0ef;
+      --code: #111820;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    }
+
+    main {
+      width: min(1160px, calc(100% - 32px));
+      margin: 32px auto;
+      padding: 38px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: 0 12px 32px rgba(23, 32, 42, .07);
+    }
+
+    h1, h2, h3 { line-height: 1.22; }
+    h1 { margin: 0 0 8px; font-size: clamp(27px, 4vw, 39px); }
+    h2 { margin: 38px 0 14px; font-size: 22px; }
+    h3 { margin: 24px 0 10px; font-size: 17px; }
+    p { margin: 8px 0; }
+    ul, ol { margin: 10px 0; padding-left: 22px; }
+    li + li { margin-top: 6px; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { font-size: .92em; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 17px 0 24px;
+    }
+
+    .badge {
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: var(--blue-soft);
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .badge.pending {
+      background: var(--amber-soft);
+      color: var(--amber);
+    }
+
+    .note {
+      margin: 18px 0;
+      padding: 14px 16px;
+      border-left: 4px solid var(--blue);
+      border-radius: 8px;
+      background: var(--blue-soft);
+    }
+
+    .note.warning {
+      border-color: var(--amber);
+      background: var(--amber-soft);
+    }
+
+    .note.success {
+      border-color: var(--green);
+      background: var(--green-soft);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .card {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fbfcfd;
+    }
+
+    .card h3 { margin-top: 0; }
+
+    pre {
+      margin: 12px 0;
+      padding: 16px;
+      overflow: auto;
+      border-radius: 10px;
+      background: var(--code);
+      color: #eef5ff;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .table-wrap { overflow-x: auto; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th, td {
+      padding: 12px 11px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th { background: #f5f7f9; font-size: 13px; }
+
+    .ok, .skip, .error {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .ok { color: var(--green); background: var(--green-soft); }
+    .skip { color: var(--amber); background: var(--amber-soft); }
+    .error { color: var(--red); background: var(--red-soft); }
+    .muted { color: var(--muted); }
+
+    .test {
+      margin: 18px 0 28px;
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+    }
+
+    .test > h3 { margin-top: 0; font-size: 20px; }
+
+    .checklist {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .checklist li::before {
+      content: "□";
+      display: inline-block;
+      width: 22px;
+      color: var(--blue);
+      font-size: 18px;
+      line-height: 1;
+      vertical-align: -1px;
+    }
+
+    footer {
+      margin-top: 34px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 760px) {
+      main { width: 100%; margin: 0; padding: 24px 18px; border: 0; border-radius: 0; }
+      .grid { grid-template-columns: 1fr; }
+      .test { padding: 17px; }
+    }
+
+    @media print {
+      body { background: #fff; }
+      main { width: 100%; margin: 0; padding: 0; border: 0; box-shadow: none; }
+      pre { white-space: pre-wrap; }
+      .test { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Новые воронки: срез изменений и live-тесты</h1>
+    <p class="muted">Альта → API → amoCRM · изменения за 20 июля 2026</p>
+    <div class="meta">
+      <span class="badge">POST /api/amocrm/td-status</span>
+      <span class="badge">POST /api/amocrm/dt-status</span>
+      <span class="badge">Новых endpoint нет</span>
+      <span class="badge pending">Пока не закоммичено и не развёрнуто</span>
+    </div>
+  </header>
+
+  <div class="note warning">
+    <strong>До live-проверки:</strong> изменения нужно закоммитить и развернуть, сбросить кэш конфигурации Laravel и убедиться, что <code>AMOCRM_TEST_MODE=false</code>. Сейчас код находится только в локальной рабочей копии.
+  </div>
+
+  <section>
+    <h2>Что конкретно изменено сегодня</h2>
+    <div class="grid">
+      <article class="card">
+        <h3>1. Поиск сделки по VIN</h3>
+        <p>Раньше поиск выполнялся только в основной воронке. Теперь он охватывает три воронки:</p>
+        <ul>
+          <li>Основная — <code>7523034</code>;</li>
+          <li>Транзит по РФ — <code>10944982</code>;</li>
+          <li>Офис Москва — <code>11036918</code>.</li>
+        </ul>
+        <p>Если одинаковый VIN найден более чем в одной подключённой сделке, API возвращает ошибку до изменения полей и этапов.</p>
+      </article>
+
+      <article class="card">
+        <h3>2. Маршрутизация по воронке</h3>
+        <p>После поиска учитывается, в какой воронке находится сделка. Один и тот же входящий статус больше не применяется одинаково ко всем карточкам.</p>
+        <ul>
+          <li><code>td-status</code> работает для основной и транзитной воронок;</li>
+          <li><code>dt-status</code> работает для основной и «Офис Москва»;</li>
+          <li>нерелевантные для воронки события отвечают <code>200 OK</code>, но ничего не меняют.</li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h3>3. Защита от откатов</h3>
+        <ul>
+          <li><code>ТД Зарегистрирована</code> не открывает повторно транзит, уже находящийся на этапе «закрыт»;</li>
+          <li><code>регистрация ПТД</code> не возвращает сделку «Офис Москва» с выпуска назад на ПТД/ТД;</li>
+          <li>если сделка уже на целевом этапе, повторная команда смены этапа в amoCRM не отправляется.</li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h3>4. Что не менялось</h3>
+        <ul>
+          <li>форматы запросов и имена полей <code>tdNum</code>/<code>pdNum</code>;</li>
+          <li>Bearer-аутентификация;</li>
+          <li>старая логика основной воронки;</li>
+          <li>передача «Транзит завершен» точным текстом без enum ID;</li>
+          <li>коррекция входящего времени UTC+10 → UTC.</li>
+        </ul>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>Итоговая матрица обработки</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Воронка</th>
+            <th>Endpoint и событие</th>
+            <th>Результат</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Основная<br><code>7523034</code></td>
+            <td><code>td-status</code> и <code>dt-status</code></td>
+            <td>Существующая логика сохранена. Завершение транзита обновляет поля без перемещения карточки.</td>
+          </tr>
+          <tr>
+            <td>Транзит по РФ<br><code>10944982</code></td>
+            <td><code>td-status</code>: <code>ТД Зарегистрирована</code></td>
+            <td>Поля ТД обновлены; этап → «Транзит по РФ (открыт)» <code>86060670</code>.</td>
+          </tr>
+          <tr>
+            <td>Транзит по РФ<br><code>10944982</code></td>
+            <td><code>td-status</code>: <code>Транзит завершен</code></td>
+            <td>Статус и дата завершения обновлены; этап → «Транзит по РФ (закрыт)» <code>86372326</code>.</td>
+          </tr>
+          <tr>
+            <td>Транзит по РФ<br><code>10944982</code></td>
+            <td>Любой запрос на <code>dt-status</code></td>
+            <td><span class="skip">Игнорируется</span> HTTP 200, карточка не меняется.</td>
+          </tr>
+          <tr>
+            <td>Офис Москва<br><code>11036918</code></td>
+            <td><code>dt-status</code>: <code>регистрация ПТД</code></td>
+            <td>Поля ДТ обновлены; этап → «ПТД/ТД» <code>86718954</code>.</td>
+          </tr>
+          <tr>
+            <td>Офис Москва<br><code>11036918</code></td>
+            <td><code>dt-status</code>: <code>выпуск с уплатой</code></td>
+            <td>Поля ДТ обновлены; этап → «Выпуск по ПТД/ДТ» <code>86718958</code>.</td>
+          </tr>
+          <tr>
+            <td>Офис Москва<br><code>11036918</code></td>
+            <td>Другие статусы <code>dt-status</code> и любой <code>td-status</code></td>
+            <td><span class="skip">Игнорируются</span> HTTP 200, карточка не меняется.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Подготовка к live-прогону</h2>
+    <ul class="checklist">
+      <li>Использовать две отдельные тестовые сделки с реальными уникальными VIN.</li>
+      <li>Проверить, что этих VIN нет в других сделках трёх подключённых воронок.</li>
+      <li>Зафиксировать этапы и значения полей до теста скриншотом.</li>
+      <li>Подставить боевой адрес API вместо <code>https://&lt;API_HOST&gt;</code> и действующий Bearer-токен.</li>
+      <li>Не использовать один VIN одновременно для обоих сценариев.</li>
+    </ul>
+    <p class="muted">В интерфейсе amoCRM ожидаем дату и время из запроса. В API дата сохраняется с действующей внутренней коррекцией −10 часов.</p>
+  </section>
+
+  <section>
+    <h2>Live-тест 1. Закрытие транзита по РФ</h2>
+    <article class="test">
+      <h3>Исходное состояние сделки</h3>
+      <ol>
+        <li>Воронка: <strong>Транзит по РФ</strong> — ID <code>10944982</code>.</li>
+        <li>Этап: <strong>Транзит по РФ (открыт)</strong> — ID <code>86060670</code>.</li>
+        <li>У сделки заполнен уникальный VIN; этот VIN подставить вместо <code>&lt;VIN_TRANSIT&gt;</code>.</li>
+        <li>Желательно заранее заполнить номер ТД, чтобы убедиться, что при завершении он не перезаписывается.</li>
+      </ol>
+
+      <h3>Запрос</h3>
+      <pre><code>curl -X POST 'https://&lt;API_HOST&gt;/api/amocrm/td-status' \
+  -H 'Authorization: Bearer &lt;TOKEN&gt;' \
+  -H 'Content-Type: application/json' \
+  --data-raw '{
+    "vinNum": "&lt;VIN_TRANSIT&gt;",
+    "tdNum": "LIVE-TD-20260720-01",
+    "status": "Транзит завершен",
+    "statusDate": "2026-07-20 15:30:00"
+  }'</code></pre>
+
+      <h3>Ожидаемый результат</h3>
+      <ul class="checklist">
+        <li>HTTP <span class="ok">200 OK</span>, тело <code>{"message":"OK"}</code>.</li>
+        <li>Этап сделки стал «Транзит по РФ (закрыт)» — ID <code>86372326</code>.</li>
+        <li>«Статус ТД» (поле <code>984685</code>) = <code>Транзит завершен</code>.</li>
+        <li>«Дата и время завершения ТТ» (поле <code>990795</code>) = <code>20.07.2026 15:30</code> в интерфейсе amoCRM.</li>
+        <li>Номер ТД и дата регистрации ТД не изменились.</li>
+      </ul>
+
+      <div class="note">
+        <strong>Дополнительная защита:</strong> после успешного закрытия можно отправить для того же VIN статус <code>ТД Зарегистрирована</code>. Ответ останется <code>200 OK</code>, но этап должен остаться «закрыт», а поля не должны откатиться на регистрацию.
+      </div>
+    </article>
+  </section>
+
+  <section>
+    <h2>Live-тест 2. Выпуск в «Офис Москва»</h2>
+    <article class="test">
+      <h3>Исходное состояние сделки</h3>
+      <ol>
+        <li>Воронка: <strong>Офис Москва</strong> — ID <code>11036918</code>.</li>
+        <li>Этап: <strong>ПТД/ТД</strong> — ID <code>86718954</code>.</li>
+        <li>У сделки заполнен другой уникальный VIN; его подставить вместо <code>&lt;VIN_MOSCOW&gt;</code>.</li>
+      </ol>
+
+      <h3>Запрос</h3>
+      <pre><code>curl -X POST 'https://&lt;API_HOST&gt;/api/amocrm/dt-status' \
+  -H 'Authorization: Bearer &lt;TOKEN&gt;' \
+  -H 'Content-Type: application/json' \
+  --data-raw '{
+    "vinNum": "&lt;VIN_MOSCOW&gt;",
+    "pdNum": "LIVE-PD-20260720-02",
+    "status": "выпуск с уплатой",
+    "statusDate": "2026-07-20 16:00:00"
+  }'</code></pre>
+
+      <h3>Ожидаемый результат</h3>
+      <ul class="checklist">
+        <li>HTTP <span class="ok">200 OK</span>, тело <code>{"message":"OK"}</code>.</li>
+        <li>Этап сделки стал «Выпуск по ПТД/ДТ» — ID <code>86718958</code>.</li>
+        <li>«Номер ДТ» (поле <code>979423</code>) = <code>LIVE-PD-20260720-02</code>.</li>
+        <li>«Статус ДТ» (поле <code>979425</code>) = <code>выпуск с уплатой (32)</code>.</li>
+        <li>«Дата выпуска ДТ» (поле <code>979429</code>) = <code>20.07.2026 16:00</code> в интерфейсе amoCRM.</li>
+      </ul>
+
+      <div class="note">
+        <strong>Дополнительная защита:</strong> после выпуска можно отправить для того же VIN статус <code>регистрация ПТД</code>. Ответ останется <code>200 OK</code>, но сделка должна остаться на этапе «Выпуск по ПТД/ДТ», без отката полей на регистрацию.
+      </div>
+    </article>
+  </section>
+
+  <section>
+    <h2>Как трактовать результат</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Наблюдение</th>
+            <th>Вывод</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="ok">200 OK</span> и все поля/этап совпали</td>
+            <td>Live-тест пройден.</td>
+          </tr>
+          <tr>
+            <td><span class="error">500</span> с сообщением о нескольких сделках одного VIN</td>
+            <td>Защита сработала. Убрать дубликат или использовать другой тестовый VIN; никаких изменений быть не должно.</td>
+          </tr>
+          <tr>
+            <td><span class="ok">200 OK</span>, но сделка не изменилась</td>
+            <td>Проверить воронку сделки, точное входящее значение статуса и <code>AMOCRM_TEST_MODE</code>. Для нерелевантной воронки событие намеренно игнорируется.</td>
+          </tr>
+          <tr>
+            <td><span class="error">422</span></td>
+            <td>Не передано обязательное поле или нарушен тип данных.</td>
+          </tr>
+          <tr>
+            <td><span class="error">401</span></td>
+            <td>Проверить Bearer-токен.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Автоматическая проверка</h2>
+    <div class="note success">
+      Локально пройдено <strong>31 автоматический тест</strong> (93 проверки). Ещё 17 существующих тестов требуют реального подключения к amoCRM и штатно пропущены — два сценария выше закрывают минимальный live smoke-тест новой маршрутизации.
+    </div>
+  </section>
+
+  <footer>
+    Документ фиксирует состояние локальных изменений на 20.07.2026. Перед отправкой запросов сверить VIN, воронку и начальный этап тестовых сделок.
+  </footer>
+</main>
+</body>
+</html>
