@@ -51,6 +51,8 @@
     li + li { margin-top: 6px; }
     code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     code { font-size: .92em; }
+    a { color: var(--blue); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+    a:hover { text-decoration-thickness: 2px; }
 
     .meta {
       display: flex;
@@ -204,12 +206,13 @@
       <span class="badge">POST /api/amocrm/td-status</span>
       <span class="badge">POST /api/amocrm/dt-status</span>
       <span class="badge">Новых endpoint нет</span>
-      <span class="badge pending">Пока не закоммичено и не развёрнуто</span>
+      <span class="badge">GitHub: <code>ade3d78</code></span>
+      <span class="badge pending">Развёртывание нужно проверить</span>
     </div>
   </header>
 
   <div class="note warning">
-    <strong>До live-проверки:</strong> изменения нужно закоммитить и развернуть, сбросить кэш конфигурации Laravel и убедиться, что <code>AMOCRM_TEST_MODE=false</code>. Сейчас код находится только в локальной рабочей копии.
+    <strong>До live-проверки:</strong> коммит <code>ade3d78</code> уже отправлен в <code>origin/main</code>. Нужно убедиться, что эта версия развёрнута, кэш конфигурации Laravel сброшен и <code>AMOCRM_TEST_MODE=false</code>.
   </div>
 
   <section>
@@ -313,11 +316,12 @@
   <section>
     <h2>Подготовка к live-прогону</h2>
     <ul class="checklist">
-      <li>Использовать две отдельные тестовые сделки с реальными уникальными VIN.</li>
-      <li>Проверить, что этих VIN нет в других сделках трёх подключённых воронок.</li>
+      <li>Для позитивных сценариев использовать отдельные сделки с уникальными VIN.</li>
+      <li>Для теста №1 проверить, что VIN <code>TRANSIT_RF</code> отсутствует в других сделках трёх подключённых воронок.</li>
+      <li>Для теста №3 проверить, что VIN <code>MOSCOW</code> отсутствует в других сделках трёх подключённых воронок.</li>
+      <li>Для теста дубля, наоборот, сохранить VIN <code>DOUBLE</code> в обеих указанных карточках.</li>
       <li>Зафиксировать этапы и значения полей до теста скриншотом.</li>
       <li>Подставить боевой адрес API вместо <code>https://&lt;API_HOST&gt;</code> и действующий Bearer-токен.</li>
-      <li>Не использовать один VIN одновременно для обоих сценариев.</li>
     </ul>
     <p class="muted">В интерфейсе amoCRM ожидаем дату и время из запроса. В API дата сохраняется с действующей внутренней коррекцией −10 часов.</p>
   </section>
@@ -327,10 +331,11 @@
     <article class="test">
       <h3>Исходное состояние сделки</h3>
       <ol>
+        <li>Реальная тестовая карточка: <a href="https://avterminal.amocrm.ru/leads/detail/25147637" target="_blank" rel="noopener">сделка #25147637 в amoCRM</a>.</li>
         <li>Воронка: <strong>Транзит по РФ</strong> — ID <code>10944982</code>.</li>
         <li>Этап: <strong>Транзит по РФ (открыт)</strong> — ID <code>86060670</code>.</li>
-        <li>У сделки заполнен уникальный VIN; этот VIN подставить вместо <code>&lt;VIN_TRANSIT&gt;</code>.</li>
-        <li>Желательно заранее заполнить номер ТД, чтобы убедиться, что при завершении он не перезаписывается.</li>
+        <li>VIN: <code>TRANSIT_RF</code>.</li>
+        <li>Номер ТД: <code>10716060/020226/5007054</code>; статус ТД: <code>ТД Зарегистрирована</code>; дата завершения пока пустая.</li>
       </ol>
 
       <h3>Запрос</h3>
@@ -338,10 +343,10 @@
   -H 'Authorization: Bearer &lt;TOKEN&gt;' \
   -H 'Content-Type: application/json' \
   --data-raw '{
-    "vinNum": "&lt;VIN_TRANSIT&gt;",
-    "tdNum": "LIVE-TD-20260720-01",
+    "vinNum": "TRANSIT_RF",
+    "tdNum": "10716060/020226/5007054",
     "status": "Транзит завершен",
-    "statusDate": "2026-07-20 15:30:00"
+    "statusDate": "2026-07-20 17:00:00"
   }'</code></pre>
 
       <h3>Ожидаемый результат</h3>
@@ -349,8 +354,9 @@
         <li>HTTP <span class="ok">200 OK</span>, тело <code>{"message":"OK"}</code>.</li>
         <li>Этап сделки стал «Транзит по РФ (закрыт)» — ID <code>86372326</code>.</li>
         <li>«Статус ТД» (поле <code>984685</code>) = <code>Транзит завершен</code>.</li>
-        <li>«Дата и время завершения ТТ» (поле <code>990795</code>) = <code>20.07.2026 15:30</code> в интерфейсе amoCRM.</li>
-        <li>Номер ТД и дата регистрации ТД не изменились.</li>
+        <li>«Дата и время завершения ТТ» (поле <code>990795</code>) = <code>20.07.2026 17:00</code> в интерфейсе amoCRM.</li>
+        <li>Номер ТД остаётся <code>10716060/020226/5007054</code>, дата регистрации ТД остаётся <code>02.02.2026</code>.</li>
+        <li>Поля ДТ в верхней части карточки не изменились.</li>
       </ul>
 
       <div class="note">
@@ -360,13 +366,51 @@
   </section>
 
   <section>
-    <h2>Live-тест 2. Выпуск в «Офис Москва»</h2>
+    <h2>Live-тест 2. Дубль VIN в разных воронках</h2>
+    <article class="test">
+      <h3>Исходное состояние сделок</h3>
+      <p>VIN <code>DOUBLE</code> одновременно находится в двух подключённых воронках:</p>
+      <ol>
+        <li><a href="https://avterminal.amocrm.ru/leads/detail/28585967" target="_blank" rel="noopener">сделка #28585967</a> — воронка «Офис Москва», этап «ПТД/ДТ»;</li>
+        <li><a href="https://avterminal.amocrm.ru/leads/detail/28585981" target="_blank" rel="noopener">сделка #28585981</a> — воронка «Транзит по РФ», этап «Транзит по РФ (открыт)».</li>
+      </ol>
+
+      <h3>Запрос</h3>
+      <pre><code>curl -X POST 'https://&lt;API_HOST&gt;/api/amocrm/td-status' \
+  -H 'Authorization: Bearer &lt;TOKEN&gt;' \
+  -H 'Content-Type: application/json' \
+  --data-raw '{
+    "vinNum": "DOUBLE",
+    "tdNum": "LIVE-DUPLICATE-TEST",
+    "status": "Транзит завершен",
+    "statusDate": "2026-07-20 17:10:00"
+  }'</code></pre>
+
+      <h3>Ожидаемый результат</h3>
+      <ul class="checklist">
+        <li>HTTP <span class="error">500</span>.</li>
+        <li>В ответе указано, что найдено несколько сделок с VIN <code>DOUBLE</code>, и перечислены ID <code>28585967</code> и <code>28585981</code>. Порядок ID может отличаться.</li>
+        <li>API не выбирает одну из карточек произвольно.</li>
+        <li>Этапы, поля ТД и поля ДТ обеих сделок остаются без изменений.</li>
+      </ul>
+
+      <p>Пример тела ответа:</p>
+      <pre><code>{
+  "error": "Найдено несколько сделок с VIN DOUBLE в подключенных воронках: 28585967, 28585981"
+}</code></pre>
+    </article>
+  </section>
+
+  <section>
+    <h2>Live-тест 3. Выпуск в «Офис Москва»</h2>
     <article class="test">
       <h3>Исходное состояние сделки</h3>
       <ol>
+        <li>Реальная тестовая карточка: <a href="https://avterminal.amocrm.ru/leads/detail/28586011" target="_blank" rel="noopener">сделка #28586011 в amoCRM</a>.</li>
         <li>Воронка: <strong>Офис Москва</strong> — ID <code>11036918</code>.</li>
         <li>Этап: <strong>ПТД/ТД</strong> — ID <code>86718954</code>.</li>
-        <li>У сделки заполнен другой уникальный VIN; его подставить вместо <code>&lt;VIN_MOSCOW&gt;</code>.</li>
+        <li>VIN: <code>MOSCOW</code>.</li>
+        <li>Поля «Номер ДТ», «Статус ДТ», даты регистрации, выпуска и отказа сейчас пустые.</li>
       </ol>
 
       <h3>Запрос</h3>
@@ -374,7 +418,7 @@
   -H 'Authorization: Bearer &lt;TOKEN&gt;' \
   -H 'Content-Type: application/json' \
   --data-raw '{
-    "vinNum": "&lt;VIN_MOSCOW&gt;",
+    "vinNum": "MOSCOW",
     "pdNum": "LIVE-PD-20260720-02",
     "status": "выпуск с уплатой",
     "statusDate": "2026-07-20 16:00:00"
@@ -387,6 +431,7 @@
         <li>«Номер ДТ» (поле <code>979423</code>) = <code>LIVE-PD-20260720-02</code>.</li>
         <li>«Статус ДТ» (поле <code>979425</code>) = <code>выпуск с уплатой (32)</code>.</li>
         <li>«Дата выпуска ДТ» (поле <code>979429</code>) = <code>20.07.2026 16:00</code> в интерфейсе amoCRM.</li>
+        <li>«Дата регистрации ДТ» и «Дата отказа ДТ» остаются пустыми.</li>
       </ul>
 
       <div class="note">
@@ -434,7 +479,7 @@
   <section>
     <h2>Автоматическая проверка</h2>
     <div class="note success">
-      Локально пройдено <strong>31 автоматический тест</strong> (93 проверки). Ещё 17 существующих тестов требуют реального подключения к amoCRM и штатно пропущены — два сценария выше закрывают минимальный live smoke-тест новой маршрутизации.
+      Локально пройдено <strong>31 автоматический тест</strong> (93 проверки). Ещё 17 существующих тестов требуют реального подключения к amoCRM и штатно пропущены — три сценария выше закрывают минимальный live smoke-тест новой маршрутизации и защиты от дублей VIN.
     </div>
   </section>
 
