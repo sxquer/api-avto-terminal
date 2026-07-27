@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 use App\Http\Controllers\AmoCRMController;
 use App\Http\Controllers\OneCIntegrationController;
+use App\Http\Controllers\OneCPaymentController;
 use App\Http\Controllers\AmoRequestLogController;
 
 
@@ -44,8 +45,10 @@ Route::middleware(['log.amo.requests', 'auth:sanctum'])->prefix('amocrm')->group
     // 1C integration, flow A (counterparties)
     Route::get('/integrations/1c/contacts/pending', [OneCIntegrationController::class, 'pendingContacts']);
     Route::post('/integrations/1c/contacts/result', [OneCIntegrationController::class, 'contactsResult']);
+    Route::post('/integrations/1c/payments/paid', [OneCPaymentController::class, 'paid']);
     Route::get('/integrations/1c-test/contacts/pending', [OneCIntegrationController::class, 'pendingContactsTest']);
     Route::post('/integrations/1c-test/contacts/result', [OneCIntegrationController::class, 'contactsResultTest']);
+    Route::post('/integrations/1c-test/payments/paid', [OneCPaymentController::class, 'paidTest']);
     
 });
 

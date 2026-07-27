@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>1С → amoCRM: передача факта полной оплаты</title>
+  <style>
+    :root {
+      --ink: #172033;
+      --muted: #637083;
+      --line: #dce3ec;
+      --surface: #f6f8fb;
+      --brand: #3157d5;
+      --brand-soft: #edf2ff;
+      --ok: #147a4b;
+      --ok-soft: #ebf8f1;
+      --warn: #a65f00;
+      --warn-soft: #fff7e5;
+      --bad: #b42318;
+      --bad-soft: #fff0ee;
+      --code: #111827;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.55;
+    }
+
+    .wrap {
+      width: min(1080px, calc(100% - 32px));
+      margin: 32px auto 72px;
+    }
+
+    .hero {
+      padding: 34px;
+      color: #fff;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #172a67, #3157d5 62%, #5277e8);
+      box-shadow: 0 18px 44px rgba(49, 87, 213, .18);
+    }
+
+    h1, h2, h3 { line-height: 1.2; }
+    h1 { margin: 0 0 12px; font-size: clamp(30px, 5vw, 46px); }
+    h2 { margin: 42px 0 16px; font-size: 27px; }
+    h3 { margin: 28px 0 12px; font-size: 20px; }
+    p { margin: 10px 0; }
+    ul, ol { padding-left: 24px; }
+    li + li { margin-top: 6px; }
+
+    .hero p { max-width: 790px; margin: 8px 0; color: rgba(255, 255, 255, .88); }
+    .hero code { color: #fff; background: rgba(255, 255, 255, .14); }
+    .meta { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 22px; }
+    .meta span { font-size: 14px; color: rgba(255, 255, 255, .8); }
+
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+    }
+
+    code {
+      padding: 2px 6px;
+      border-radius: 5px;
+      background: var(--surface);
+    }
+
+    pre {
+      margin: 12px 0 18px;
+      padding: 18px;
+      overflow-x: auto;
+      color: #e6edf3;
+      background: var(--code);
+      border-radius: 12px;
+      line-height: 1.5;
+      tab-size: 2;
+    }
+
+    pre code { padding: 0; color: inherit; background: none; }
+
+    .toc, .card, .note {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+    }
+
+    .toc { margin-top: 22px; padding: 18px 22px; background: var(--surface); }
+    .toc strong { display: block; margin-bottom: 8px; }
+    .toc a { color: var(--brand); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .card { padding: 20px; }
+    .card h3 { margin-top: 0; }
+
+    .note {
+      margin: 18px 0;
+      padding: 16px 18px;
+      border-left: 5px solid var(--brand);
+      background: var(--brand-soft);
+    }
+
+    .note.ok { border-left-color: var(--ok); background: var(--ok-soft); }
+    .note.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+    .note.bad { border-left-color: var(--bad); background: var(--bad-soft); }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .badge.ok { color: var(--ok); background: var(--ok-soft); }
+    .badge.warn { color: var(--warn); background: var(--warn-soft); }
+    .badge.bad { color: var(--bad); background: var(--bad-soft); }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin: 18px 0;
+      counter-reset: flow;
+    }
+
+    .flow div {
+      position: relative;
+      min-height: 116px;
+      padding: 38px 14px 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface);
+    }
+
+    .flow div::before {
+      counter-increment: flow;
+      content: counter(flow);
+      position: absolute;
+      top: 12px;
+      left: 14px;
+      width: 22px;
+      height: 22px;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      background: var(--brand);
+      border-radius: 50%;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .table-wrap { overflow-x: auto; margin: 14px 0 22px; }
+    table { width: 100%; border-collapse: collapse; min-width: 680px; }
+    th, td { padding: 12px 13px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { background: var(--surface); font-size: 14px; }
+    td code { white-space: nowrap; }
+
+    .endpoint {
+      margin: 14px 0;
+      padding: 16px 18px;
+      color: #fff;
+      background: #233052;
+      border-radius: 11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      overflow-x: auto;
+    }
+
+    .method { color: #9fe6bc; font-weight: 800; margin-right: 10px; }
+    .muted { color: var(--muted); }
+    .small { font-size: 14px; }
+    footer { margin-top: 54px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+
+    @media (max-width: 760px) {
+      .wrap { width: min(100% - 20px, 1080px); margin-top: 10px; }
+      .hero { padding: 24px 20px; border-radius: 14px; }
+      .grid, .flow { grid-template-columns: 1fr; }
+      h2 { font-size: 24px; }
+    }
+
+    @media print {
+      .wrap { width: 100%; margin: 0; }
+      .hero { color: #111; background: none; box-shadow: none; border: 2px solid #111; }
+      .hero p, .hero .meta span { color: #333; }
+      .hero code { color: #111; background: #eee; }
+      pre { white-space: pre-wrap; word-break: break-word; }
+      a { color: inherit; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="hero">
+      <h1>1С → amoCRM: факт полной оплаты</h1>
+      <p>Технический мануал для разработчика 1С. Описывает отправку VIN после оплаты всех счетов и текущие ограничения по воронкам amoCRM.</p>
+      <div class="meta">
+        <span>Версия: 1.0</span>
+        <span>Дата: 27.07.2026</span>
+        <span>Базовый URL: <code>http://api-avto-terminal.ru</code></span>
+      </div>
+    </header>
+
+    <nav class="toc" aria-label="Содержание">
+      <strong>Содержание</strong>
+      <a href="#logic">1. Логика обмена</a> ·
+      <a href="#contract">2. Контракт</a> ·
+      <a href="#production">3. Метод API</a> ·
+      <a href="#responses">4. Повторная отправка</a> ·
+      <a href="#errors">5. Ошибки</a> ·
+      <a href="#limits">6. Ограничения</a>
+    </nav>
+
+    <section id="logic">
+      <h2>1. Логика обмена</h2>
+      <div class="note ok">
+        <strong>Главное правило:</strong> 1С самостоятельно определяет, что по автомобилю оплачены все обязательные счета. API не получает перечень счетов и не пересчитывает оплату — он принимает готовый финальный факт по VIN.
+      </div>
+
+      <div class="flow" aria-label="Схема обработки оплаты">
+        <div>1С подтверждает оплату всех счетов по автомобилю.</div>
+        <div>1С отправляет JSON с единственным обязательным полем <code>vin</code>.</div>
+        <div>API ищет ровно одну сделку по полю VIN в подключённых воронках.</div>
+        <div>Если сделка находится в основной воронке, API переводит её в этап «Оплачено».</div>
+      </div>
+
+      <p>Целевые значения основной воронки:</p>
+      <ul>
+        <li>воронка: <strong>«Воронка»</strong>, ID <code>7523034</code>;</li>
+        <li>этап назначения: <strong>«Оплачено»</strong>, ID <code>64577710</code>.</li>
+      </ul>
+    </section>
+
+    <section id="contract">
+      <h2>2. Общий контракт запроса</h2>
+      <p>Метод принимает JSON с VIN автомобиля.</p>
+
+      <h3>HTTP-заголовки</h3>
+      <pre><code>Authorization: Bearer &lt;SANCTUM_TOKEN&gt;
+Content-Type: application/json
+Accept: application/json</code></pre>
+
+      <h3>Тело запроса</h3>
+      <pre><code>{
+  "vin": "JTDBR32E720123456"
+}</code></pre>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Поле</th>
+              <th>Тип</th>
+              <th>Обязательное</th>
+              <th>Ограничения</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>vin</code></td>
+              <td>Строка</td>
+              <td>Да</td>
+              <td>Непустая строка, максимум 64 символа. Пробелы по краям удаляются, регистр приводится к верхнему.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note warn">
+        Не передавайте токен в JSON или query-параметрах. Токен передаётся только в заголовке <code>Authorization</code>. Не записывайте его в пользовательские логи 1С.
+      </div>
+    </section>
+
+    <section id="production">
+      <h2>3. Метод API</h2>
+      <div class="endpoint"><span class="method">POST</span>http://api-avto-terminal.ru/api/amocrm/integrations/1c/payments/paid</div>
+
+      <div class="note bad">
+        Метод изменяет карточку amoCRM. Вызывать его следует только когда 1С подтвердила оплату всех счетов по автомобилю.
+      </div>
+
+      <h3>Пример curl</h3>
+      <pre><code>curl -X POST "http://api-avto-terminal.ru/api/amocrm/integrations/1c/payments/paid" \
+  -H "Authorization: Bearer SANCTUM_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -d '{"vin":"JTDBR32E720123456"}'</code></pre>
+
+      <h3>Успешный ответ</h3>
+      <p>Формат совпадает с ответами существующих методов <code>dt-status</code> и <code>td-status</code>:</p>
+      <pre><code>{
+  "message": "OK"
+}</code></pre>
+      <p>HTTP <code>200</code> и <code>message=OK</code> означают, что факт оплаты принят и обработан.</p>
+    </section>
+
+    <section id="responses">
+      <h2>4. Повторная отправка</h2>
+      <p>Вызов идемпотентен на уровне этапа сделки. Если 1С не получила HTTP-ответ из-за обрыва сети, запрос с тем же VIN можно повторить. Если первый запрос успел изменить сделку, повторный вызов не обновит этап второй раз и вернёт стандартное подтверждение:</p>
+      <pre><code>{
+  "message": "OK"
+}</code></pre>
+    </section>
+
+    <section id="errors">
+      <h2>5. Ошибки и повторные попытки</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>HTTP</th>
+              <th>Причина</th>
+              <th>Что делать в 1С</th>
+              <th>Автоповтор</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>401</code></td>
+              <td>Bearer-токен отсутствует, просрочен или неверен.</td>
+              <td>Проверить настройку токена.</td>
+              <td><span class="badge bad">Нет</span></td>
+            </tr>
+            <tr>
+              <td><code>404</code></td>
+              <td>Сделка с переданным VIN не найдена.</td>
+              <td>Проверить VIN и наличие карточки в amoCRM.</td>
+              <td><span class="badge bad">Нет</span></td>
+            </tr>
+            <tr>
+              <td><code>409</code></td>
+              <td>VIN найден более чем в одной сделке либо сделка находится не в основной воронке.</td>
+              <td>Передать на ручную проверку. Не выбирать сделку автоматически.</td>
+              <td><span class="badge bad">Нет</span></td>
+            </tr>
+            <tr>
+              <td><code>422</code></td>
+              <td>Поле <code>vin</code> отсутствует или нарушен формат.</td>
+              <td>Исправить формирование JSON.</td>
+              <td><span class="badge bad">Нет</span></td>
+            </tr>
+            <tr>
+              <td><code>502</code></td>
+              <td>amoCRM временно не ответила или не приняла обновление.</td>
+              <td>Сохранить запрос в очередь повторной отправки.</td>
+              <td><span class="badge ok">Да</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>Пример ответа с ошибкой:</p>
+      <pre><code>{
+  "error": "Сделка с VIN JTDBR32E720123456 не найдена"
+}</code></pre>
+
+      <div class="note">
+        Рекомендуемый автоповтор только для сетевой ошибки или HTTP <code>502</code>: через 1 минуту, 5 минут и 15 минут. После трёх неудач — ручная проверка. Для <code>401</code>, <code>404</code>, <code>409</code> и <code>422</code> автоматический повтор без исправления причины бесполезен.
+      </div>
+    </section>
+
+    <section id="limits">
+      <h2>6. Ограничения по воронкам</h2>
+      <div class="note bad">
+        На дату документа перевод в «Оплачено» реализован только для основной воронки. В двух остальных подключённых воронках такого этапа сейчас нет.
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Воронка</th>
+              <th>ID</th>
+              <th>Этап «Оплачено»</th>
+              <th>Результат запроса</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Воронка (основная)</td>
+              <td><code>7523034</code></td>
+              <td><span class="badge ok">Есть</span> ID <code>64577710</code></td>
+              <td>Боевой метод переводит сделку в «Оплачено».</td>
+            </tr>
+            <tr>
+              <td>Транзит по РФ</td>
+              <td><code>10944982</code></td>
+              <td><span class="badge bad">Нет</span></td>
+              <td>HTTP <code>409</code>; карточка не меняется.</td>
+            </tr>
+            <tr>
+              <td>Офис Москва</td>
+              <td><code>11036918</code></td>
+              <td><span class="badge bad">Нет</span></td>
+              <td>HTTP <code>409</code>; карточка не меняется.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Как выполняется поиск</h3>
+      <ul>
+        <li>API ищет VIN сразу в трёх перечисленных воронках.</li>
+        <li>Если VIN найден только в основной воронке, обработка продолжается.</li>
+        <li>Если VIN найден только в «Транзит по РФ» или «Офис Москва», возвращается <code>409</code>.</li>
+        <li>Если одинаковый VIN найден в нескольких сделках или воронках, возвращается <code>409</code>; API не выбирает карточку произвольно.</li>
+      </ul>
+
+      <p>Чтобы включить оплату в двух остальных воронках, необходимо создать в каждой этап «Оплачено», получить его ID и добавить на backend маппинг <code>pipelineId → paidStatusId</code>. До этого 1С должна отправлять такие случаи на ручную обработку.</p>
+    </section>
+
+    <footer>
+      Документ фиксирует контракт endpoint оплаты и структуру воронок amoCRM на 27.07.2026. При добавлении этапов «Оплачено» в другие воронки таблица ограничений и backend-конфигурация должны быть обновлены одновременно.
+    </footer>
+  </main>
+</body>
+</html>

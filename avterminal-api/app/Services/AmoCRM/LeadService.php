@@ -5,6 +5,7 @@ namespace App\Services\AmoCRM;
 use AmoCRM\Filters\ContactsFilter;
 use AmoCRM\Filters\LeadsFilter;
 use AmoCRM\Models\LeadModel;
+use App\Exceptions\AmoCRM\MultipleLeadsFoundForVinException;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -102,11 +103,7 @@ class LeadService
                 $leads->all()
             );
 
-            throw new \Exception(sprintf(
-                'Найдено несколько сделок с VIN %s в подключенных воронках: %s',
-                $vin,
-                implode(', ', $leadIds)
-            ));
+            throw new MultipleLeadsFoundForVinException($vin, $leadIds);
         }
 
         return $leads->first();
