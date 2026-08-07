@@ -24,6 +24,14 @@ return [
             ],
         ],
 
+        'uss_invoice_issued' => [
+            'id' => 990217,
+        ],
+
+        'uss_invoice_paid' => [
+            'id' => 990219,
+        ],
+
         'nomer_dt' => [
             'id' => 979423,
         ],

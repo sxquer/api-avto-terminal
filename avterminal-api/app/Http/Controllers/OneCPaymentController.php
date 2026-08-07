@@ -19,25 +19,44 @@ class OneCPaymentController extends Controller
 
     public function paid(Request $request): JsonResponse
     {
-        return $this->handlePaid($request, false);
+        return $this->handlePaymentStatus($request, false, true);
     }
 
     /**
-     * Безопасная проверка тестового контура: находит сделку, но не меняет ее этап.
+     * Основной endpoint синхронизации статуса оплаты из 1С.
+     */
+    public function status(Request $request): JsonResponse
+    {
+        return $this->handlePaymentStatus($request, false, false);
+    }
+
+    /**
+     * Безопасная проверка тестового контура: находит сделку, но не меняет карточку.
      */
     public function paidTest(Request $request): JsonResponse
     {
-        return $this->handlePaid($request, true);
+        return $this->handlePaymentStatus($request, true, true);
     }
 
-    private function handlePaid(Request $request, bool $dryRun): JsonResponse
+    private function handlePaymentStatus(Request $request, bool $dryRun, bool $legacyPaidEndpoint): JsonResponse
     {
         try {
+            // Старый /payments/paid принимал только VIN. Сохраняем совместимость:
+            // отсутствие status на legacy URL означает paid.
+            if ($legacyPaidEndpoint && ! $request->has('status')) {
+                $request->merge(['status' => PaymentSyncService::STATUS_PAID]);
+            }
+
             $validated = $request->validate([
                 'vin' => 'required|string|max:64',
+                'status' => 'required|string|in:paid,unpaid',
             ]);
 
-            $result = $this->paymentSyncService->markPaidByVin($validated['vin'], $dryRun);
+            $result = $this->paymentSyncService->syncPaymentStatusByVin(
+                $validated['vin'],
+                $validated['status'],
+                $dryRun
+            );
 
             if ($dryRun) {
                 $result['environment'] = CounterpartyFlowService::ENV_TEST;
@@ -61,7 +80,7 @@ class OneCPaymentController extends Controller
                 'error' => $e->getMessage(),
             ], 409);
         } catch (\Throwable $e) {
-            Log::error('1C payment: ошибка обработки факта оплаты', [
+            Log::error('1C payment: ошибка обработки статуса оплаты', [
                 'vin' => $request->input('vin'),
                 'exception' => $e,
             ]);

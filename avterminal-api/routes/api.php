@@ -1,15 +1,13 @@
 <?php
 
+use App\Http\Controllers\AmoCRMController;
+use App\Http\Controllers\AmoRequestLogController;
+use App\Http\Controllers\OneCIntegrationController;
+use App\Http\Controllers\OneCPaymentController;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Validation\ValidationException;
-use App\Http\Controllers\AmoCRMController;
-use App\Http\Controllers\OneCIntegrationController;
-use App\Http\Controllers\OneCPaymentController;
-use App\Http\Controllers\AmoRequestLogController;
-
 
 Route::get('/', function () {
     return response()->json(['message' => 'Welcome to the API']);
@@ -34,7 +32,7 @@ Route::post('/amocrm/deals/contract-ready-test', [OneCIntegrationController::cla
     ->middleware('log.amo.requests');
 
 Route::middleware(['log.amo.requests', 'auth:sanctum'])->prefix('amocrm')->group(function () {
-    
+
     Route::get('/export-xml', [AmoCRMController::class, 'exportToXml']);
     Route::get('/lead/{id}', [AmoCRMController::class, 'getLeadData']);
     Route::get('/lead/{id}/formatted', [AmoCRMController::class, 'getFormattedLeadAndContactData']);
@@ -45,11 +43,13 @@ Route::middleware(['log.amo.requests', 'auth:sanctum'])->prefix('amocrm')->group
     // 1C integration, flow A (counterparties)
     Route::get('/integrations/1c/contacts/pending', [OneCIntegrationController::class, 'pendingContacts']);
     Route::post('/integrations/1c/contacts/result', [OneCIntegrationController::class, 'contactsResult']);
+    Route::post('/integrations/1c/payments/status', [OneCPaymentController::class, 'status']);
+    // Временный legacy alias: VIN без status трактуется как paid.
     Route::post('/integrations/1c/payments/paid', [OneCPaymentController::class, 'paid']);
     Route::get('/integrations/1c-test/contacts/pending', [OneCIntegrationController::class, 'pendingContactsTest']);
     Route::post('/integrations/1c-test/contacts/result', [OneCIntegrationController::class, 'contactsResultTest']);
     Route::post('/integrations/1c-test/payments/paid', [OneCPaymentController::class, 'paidTest']);
-    
+
 });
 
 Route::post('/setup-test-user', function () {

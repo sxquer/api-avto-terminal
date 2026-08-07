@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Статусы оплаты из 1С — вопросы и решения</title>
+  <style>
+    :root {
+      --ink: #182033;
+      --muted: #667085;
+      --line: #d8dee9;
+      --surface: #f7f8fb;
+      --blue: #3157d5;
+      --blue-soft: #edf2ff;
+      --amber: #9a5b00;
+      --amber-soft: #fff7e6;
+      --green: #147a4b;
+      --green-soft: #ebf8f1;
+      --red: #b42318;
+      --red-soft: #fff0ee;
+      --code: #111827;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.55;
+    }
+
+    main {
+      width: min(1240px, calc(100% - 32px));
+      margin: 30px auto 72px;
+    }
+
+    .hero {
+      padding: 34px;
+      color: #fff;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #162557, #3157d5 64%, #5579e6);
+      box-shadow: 0 18px 46px rgba(49, 87, 213, .18);
+    }
+
+    h1, h2, h3 { line-height: 1.2; }
+    h1 { margin: 0 0 12px; font-size: clamp(30px, 5vw, 46px); }
+    h2 { margin: 42px 0 16px; font-size: 27px; }
+    h3 { margin: 26px 0 10px; font-size: 20px; }
+    p { margin: 10px 0; }
+    ul, ol { padding-left: 23px; }
+    li + li { margin-top: 6px; }
+
+    .hero p { max-width: 880px; color: rgba(255, 255, 255, .88); }
+    .meta { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 20px; }
+    .meta span { font-size: 14px; color: rgba(255, 255, 255, .78); }
+
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+    }
+
+    code { padding: 2px 6px; border-radius: 5px; background: var(--surface); }
+    pre { padding: 17px; overflow-x: auto; color: #e6edf3; background: var(--code); border-radius: 11px; }
+    pre code { padding: 0; color: inherit; background: none; }
+
+    .note {
+      margin: 18px 0;
+      padding: 16px 18px;
+      border: 1px solid #c9d6ff;
+      border-left: 5px solid var(--blue);
+      border-radius: 12px;
+      background: var(--blue-soft);
+    }
+
+    .note.warn { border-color: #f1d291; border-left-color: var(--amber); background: var(--amber-soft); }
+    .note.ok { border-color: #b8e1cb; border-left-color: var(--green); background: var(--green-soft); }
+
+    .table-wrap { margin: 16px 0 26px; overflow-x: auto; }
+    table { width: 100%; min-width: 970px; border-collapse: separate; border-spacing: 0; }
+    th, td { padding: 15px 16px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th:first-child, td:first-child { border-left: 1px solid var(--line); }
+    thead th { border-top: 1px solid var(--line); background: #eef1f6; font-size: 14px; }
+    thead th:first-child { border-top-left-radius: 12px; }
+    thead th:last-child { border-top-right-radius: 12px; }
+    tbody tr:last-child td:first-child { border-bottom-left-radius: 12px; }
+    tbody tr:last-child td:last-child { border-bottom-right-radius: 12px; }
+    tbody tr:nth-child(even) td { background: #fbfcfe; }
+
+    .original { width: 38%; }
+    .issue { width: 29%; background: var(--amber-soft) !important; }
+    .proposal { width: 33%; background: var(--green-soft) !important; }
+
+    .quote {
+      margin: 0;
+      white-space: pre-line;
+      font-size: 15px;
+    }
+
+    .label {
+      display: inline-block;
+      margin-bottom: 7px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .label.source { color: var(--blue); background: var(--blue-soft); }
+    .label.issue { color: var(--amber); background: #ffedbe; }
+    .label.proposal { color: var(--green); background: #d8f1e3; }
+    .label.blocker { color: var(--red); background: var(--red-soft); }
+
+    .matrix { min-width: 760px; }
+    .matrix td, .matrix th { text-align: center; }
+    .matrix td:first-child, .matrix th:first-child { text-align: left; }
+    .yes { color: var(--green); font-weight: 750; }
+    .no { color: var(--red); font-weight: 750; }
+    .same { color: var(--muted); font-weight: 700; }
+
+    .decision-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin: 16px 0;
+    }
+
+    .decision {
+      padding: 17px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface);
+    }
+
+    .decision strong { display: block; margin-bottom: 6px; }
+    .muted { color: var(--muted); }
+    footer { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+
+    @media (max-width: 800px) {
+      main { width: min(100% - 20px, 1240px); margin-top: 10px; }
+      .hero { padding: 24px 20px; border-radius: 14px; }
+      .decision-list { grid-template-columns: 1fr; }
+    }
+
+    @media print {
+      main { width: 100%; margin: 0; }
+      .hero { color: #111; background: none; border: 2px solid #111; box-shadow: none; }
+      .hero p, .hero .meta span { color: #333; }
+      table { min-width: 0; }
+      .table-wrap { overflow: visible; }
+      pre { white-space: pre-wrap; word-break: break-word; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="hero">
+      <h1>Статусы оплаты из 1С</h1>
+      <p>Исходные формулировки, замеченные противоречия и предложения по доработке метода синхронизации оплаты.</p>
+      <div class="meta">
+        <span>Документ для согласования</span>
+        <span>Дата: 07.08.2026</span>
+        <span>Первый этап: только основная воронка</span>
+      </div>
+    </header>
+
+    <section>
+      <h2>1. Что приходит из 1С</h2>
+      <p>К существующему VIN добавляется поле <code>status</code> с двумя возможными значениями.</p>
+
+      <pre><code>{
+  "vin": "JTDBR32E720123456",
+  "status": "paid"
+}</code></pre>
+
+      <div class="table-wrap">
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>Значение 1С</th>
+              <th>Смысл</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>unpaid</code></td>
+              <td>Есть неоплаченные счета</td>
+            </tr>
+            <tr>
+              <td><code>paid</code></td>
+              <td>Все счета оплачены</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note ok">
+        Проверено в amoCRM: <strong>«Счёт выставлен (Усс)»</strong> <code>990217</code> и <strong>«Счёт оплачен (Усс)»</strong> <code>990219</code> имеют тип <code>checkbox</code>. Поле <strong>«Цвет сделки»</strong> <code>974799</code> содержит значения «Красный» <code>1231087</code> и «Зеленый» <code>1231089</code>.
+      </div>
+
+      <h3>Название и адрес метода</h3>
+      <div class="table-wrap">
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>Вариант</th>
+              <th>Адрес</th>
+              <th>Комментарий</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Текущий</td>
+              <td><code>POST /api/amocrm/integrations/1c/payments/paid</code></td>
+              <td>Название описывает только полную оплату и противоречит новому входящему значению <code>unpaid</code>.</td>
+            </tr>
+            <tr>
+              <td><strong>Рекомендуемый</strong></td>
+              <td><code>POST /api/amocrm/integrations/1c/payments/status</code></td>
+              <td>Метод синхронизирует статус оплаты, поэтому одинаково корректно описывает <code>paid</code> и <code>unpaid</code>.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note warn">
+        <strong>Реализованный переход:</strong> новым основным URL стал <code>/payments/status</code>. Текущий <code>/payments/paid</code> временно оставлен как alias, чтобы не сломать уже начатую интеграцию. После перехода 1С старый адрес можно удалить.
+      </div>
+    </section>
+
+    <section>
+      <h2>2. Исходные формулировки и предложения</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="original">Как сформулировано изначально</th>
+              <th class="issue">Противоречие или незакрытый вопрос</th>
+              <th class="proposal">Предложение</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="original">
+                <span class="label source">Исходная формулировка</span>
+                <p class="quote">«Со стороны 1С ещё планируют присылать поле status с возможными значениями paid/unpaid».</p>
+              </td>
+              <td class="issue">
+                <span class="label issue">Нужно определить</span>
+                <p>Текущий URL заканчивается на <code>/payments/paid</code>. После появления <code>unpaid</code> название метода перестаёт соответствовать его назначению.</p>
+              </td>
+              <td class="proposal">
+                <span class="label proposal">Предложение</span>
+                <p>Использовать <code>POST /api/amocrm/integrations/1c/payments/status</code>. Старый URL временно оставить как alias для обратной совместимости — этот вариант принят и реализован.</p>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="original">
+                <span class="label source">Исходная формулировка</span>
+                <p class="quote">«На первый этап делаем обработку только по основной воронке. В ней двигаем ползунки “Уссурийск”: счёт выставлен, счёт оплачен. Остальные воронки пока не трогаем».</p>
+              </td>
+              <td class="issue">
+                <span class="label issue">Что значит «не трогаем»</span>
+                <p>Нужно зафиксировать HTTP-ответ, если VIN найден в «Транзит по РФ» или «Офис Москва». Иначе 1С может считать такой запрос успешно обработанным и потерять событие.</p>
+              </td>
+              <td class="proposal">
+                <span class="label proposal">Предложение</span>
+                <p>Работать только с основной воронкой <code>7523034</code>. Для двух остальных возвращать <code>409</code>, ничего не меняя. Дубли VIN также возвращают <code>409</code>.</p>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="original">
+                <span class="label source">Исходная формулировка</span>
+                <p class="quote">«Если приходит статус “есть неоплаченные счета”, а ползунок про оплату счетов сейчас в положении “счёт оплачен” — ползунок переключается обратно: “счёт выставлен” остаётся активным, “счёт оплачен” становится неактивным. Карточку красим в красный цвет. Стадии не меняем».</p>
+              </td>
+              <td class="issue">
+                <span class="label blocker">Визуальное противоречие</span>
+                <p>Если карточка уже находится на стадии «Оплачено», после <code>unpaid</code> она останется на этой стадии, но будет красной и с выключенным полем «Счёт оплачен». Стадия и поля будут говорить разное.</p>
+              </td>
+              <td class="proposal">
+                <span class="label proposal">Буквальное исполнение</span>
+                <p>Для <code>unpaid</code> установить: «Счёт выставлен» = да, «Счёт оплачен» = нет, цвет = красный. Стадию не менять даже тогда, когда она уже «Оплачено». Это решение принято и реализовано.</p>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="original">
+                <span class="label source">Исходная формулировка</span>
+                <p class="quote">«Если приходит статус “есть неоплаченные счета”, а ползунок уже в положении “счёт выставлен”, ползунок “счёт оплачен” неактивный — всё остаётся как есть».</p>
+              </td>
+              <td class="issue">
+                <span class="label issue">Цвет не упомянут в условии</span>
+                <p>Поля могут уже быть в нужном положении, но цвет карточки может быть не красным. Фраза «всё остаётся как есть» конфликтует с общим требованием выделять неоплаченные карточки красным.</p>
+              </td>
+              <td class="proposal">
+                <span class="label proposal">Целевое состояние</span>
+                <p>Поля не переключать повторно, но обязательно проверить цвет. Если цвет не красный — установить красный. Если всё уже совпадает, не отправлять лишнее обновление.</p>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="original">
+                <span class="label source">Исходная формулировка</span>
+                <p class="quote">«Если приходит статус “все счета оплачены”, а ползунок “счёт выставлен” активный, ползунок “счёт оплачен” неактивный — ползунок “счёт оплачен” переключается на активный».</p>
+              </td>
+              <td class="issue">
+                <span class="label issue">Не описан один вариант</span>
+                <p>Не определено поведение, если пришёл <code>paid</code>, но «Счёт выставлен» почему-то выключен. Также в этом пункте отдельно не сказаны цвет и перевод стадии.</p>
+              </td>
+              <td class="proposal">
+                <span class="label proposal">Целевое состояние</span>
+                <p>Для <code>paid</code> всегда устанавливать оба поля в «да», цвет — зелёный, стадию — «Оплачено» <code>64577710</code>. Оплаченный счёт логически считаем выставленным.</p>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="original">
+                <span class="label source">Исходная формулировка</span>
+                <p class="quote">«Если приходит статус “все счета оплачены”, “счёт выставлен” активный и “счёт оплачен” активный — всё остаётся как есть».</p>
+              </td>
+              <td class="issue">
+                <span class="label issue">Поля совпали, остальное — нет</span>
+                <p>Оба checkbox могут быть активны, но цвет может быть красным, а стадия — не «Оплачено». В таком случае буквально «всё оставить» не выполнит остальные требования.</p>
+              </td>
+              <td class="proposal">
+                <span class="label proposal">Проверять всё состояние</span>
+                <p>Не ограничиваться двумя полями. Для <code>paid</code> проверить checkbox, зелёный цвет и стадию. Обновлять только несовпадающие значения.</p>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="original">
+                <span class="label source">Исходная формулировка</span>
+                <p class="quote">«Не оплачен — красным. Оплачен — зелёным».</p>
+              </td>
+              <td class="issue">
+                <span class="label blocker">Общий ресурс</span>
+                <p>Поле «Цвет сделки» уже используется логикой ДТ. Например, красный цвет ставится при отказах и ожидании. Событие <code>paid</code> перезапишет такой красный цвет на зелёный, даже если проблема с ДТ осталась.</p>
+              </td>
+              <td class="proposal">
+                <span class="label proposal">Нужен приоритет</span>
+                <p>Для первой версии считать последний статус оплаты приоритетным источником цвета. Альтернатива — не ставить зелёный поверх красного, но тогда требование «оплачен — зелёным» выполняется не всегда.</p>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="original">
+                <span class="label source">Существующая логика</span>
+                <p class="quote">«Закрытые сделки не переоткрываем: этапы 142 и 143 защищены».</p>
+              </td>
+              <td class="issue">
+                <span class="label issue">Нет нового правила</span>
+                <p>Не сказано, должны ли на закрытой карточке обновляться checkbox и цвет при <code>paid/unpaid</code>, если стадия остаётся закрытой.</p>
+              </td>
+              <td class="proposal">
+                <span class="label proposal">Предложение</span>
+                <p>Не менять закрытую стадию. При этом обновлять checkbox и цвет, чтобы карточка отражала актуальные данные 1С. Это решение принято и реализовано.</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>3. Предлагаемая итоговая матрица</h2>
+      <div class="table-wrap">
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>Входящий статус</th>
+              <th>Счёт выставлен (Усс)</th>
+              <th>Счёт оплачен (Усс)</th>
+              <th>Цвет</th>
+              <th>Стадия</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>unpaid</code></td>
+              <td class="yes">Активен</td>
+              <td class="no">Неактивен</td>
+              <td class="no">Красный</td>
+              <td class="same">Не менять</td>
+            </tr>
+            <tr>
+              <td><code>paid</code></td>
+              <td class="yes">Активен</td>
+              <td class="yes">Активен</td>
+              <td class="yes">Зелёный</td>
+              <td class="yes">Оплачено</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        Реализацию лучше строить не как набор переходов «из одного положения ползунков в другое», а как приведение карточки к целевому состоянию. Это автоматически покрывает повторные события, частично заполненные карточки и несоответствие цвета полям.
+      </div>
+    </section>
+
+    <section>
+      <h2>4. Принятые решения по спорным сценариям</h2>
+      <div class="decision-list">
+        <div class="decision">
+          <strong>1. `unpaid` после стадии «Оплачено»</strong>
+          Стадию оставляем «Оплачено». Поле «Счёт оплачен» выключаем, «Счёт выставлен» оставляем включённым, цвет меняем на красный.
+        </div>
+        <div class="decision">
+          <strong>2. Приоритет цвета</strong>
+          Последний статус оплаты перезаписывает поле «Цвет сделки», даже если прежний цвет был установлен логикой ДТ.
+        </div>
+        <div class="decision">
+          <strong>3. Закрытые сделки</strong>
+          На этапах 142/143 обновляем checkbox и цвет, но закрытую стадию не меняем и сделку не переоткрываем.
+        </div>
+        <div class="decision">
+          <strong>4. URL метода</strong>
+          Основной адрес — <code>/payments/status</code>. Исторический <code>/payments/paid</code> временно работает как совместимый alias; VIN без status на нём означает <code>paid</code>.
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>5. Как реализовано</h2>
+      <ol>
+        <li>Новый адрес <code>/payments/status</code> требует поле <code>status</code> со строгими значениями <code>paid</code> и <code>unpaid</code>.</li>
+        <li>Старый адрес <code>/payments/paid</code> принимает тот же контракт, а при отсутствии status подставляет <code>paid</code>.</li>
+        <li>ID двух checkbox добавлены в конфигурацию amoCRM; общий сервис полей расширен типом <code>checkbox</code>.</li>
+        <li>Сервис приводит сделку к целевому состоянию и обновляет только отличающиеся checkbox, цвет и стадию.</li>
+        <li>Изменения разрешены только для основной воронки <code>7523034</code>; другие воронки и дубли VIN получают <code>409</code> без записи.</li>
+        <li>Для <code>unpaid</code> стадия никогда не меняется. Для <code>paid</code> открытая сделка переходит в «Оплачено».</li>
+        <li>На закрытых этапах меняются поля и цвет, но стадия сохраняется.</li>
+        <li>Успешный ответ сохранён в совместимом формате <code>{"message":"OK"}</code>.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>6. Ручная тестовая матрица</h2>
+      <div class="note warn"><strong>Внимание:</strong> запросы меняют amoCRM. Использовать специально подготовленные карточки с уникальными VIN и записать исходное состояние перед тестом.</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>№</th><th>Подготовка и запрос</th><th>Ожидаемый результат</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>1</td><td>Основная воронка; выставлен = да, оплачен = нет, красный, стадия «Оплата». Отправить <code>paid</code> на новый URL.</td><td>Оба checkbox включены, цвет зелёный, стадия «Оплачено», HTTP 200.</td></tr>
+            <tr><td>2</td><td>Повторить тест №1.</td><td>Никаких новых изменений, HTTP 200.</td></tr>
+            <tr><td>3</td><td>После теста №1 отправить <code>unpaid</code>.</td><td>Выставлен = да, оплачен = нет, цвет красный; стадия остаётся «Оплачено».</td></tr>
+            <tr><td>4</td><td>Повторить тест №3.</td><td>Никаких новых изменений, HTTP 200.</td></tr>
+            <tr><td>5</td><td>Оба checkbox выключены. Отправить <code>paid</code>.</td><td>Оба включены, цвет зелёный, стадия «Оплачено».</td></tr>
+            <tr><td>6</td><td>Оба checkbox выключены. Отправить <code>unpaid</code>.</td><td>Выставлен включён, оплачен выключен, цвет красный, стадия прежняя.</td></tr>
+            <tr><td>7</td><td>На старый URL отправить только VIN.</td><td>Запрос обработан как <code>paid</code>.</td></tr>
+            <tr><td>8</td><td>На старый URL отправить VIN и <code>status=unpaid</code>.</td><td>Применена логика <code>unpaid</code>.</td></tr>
+            <tr><td>9</td><td>Закрытая карточка 142/143; отправить paid и unpaid.</td><td>Checkbox и цвет меняются, закрытая стадия не меняется.</td></tr>
+            <tr><td>10</td><td>VIN сделки в «Транзит по РФ» и затем в «Офис Москва».</td><td>HTTP 409; карточка не изменена.</td></tr>
+            <tr><td>11</td><td>Одинаковый VIN в двух подключённых воронках.</td><td>HTTP 409; ни одна карточка не изменена.</td></tr>
+            <tr><td>12</td><td>Неизвестный VIN.</td><td>HTTP 404.</td></tr>
+            <tr><td>13</td><td>Новый URL без status; status = partial; status = PAID; запрос без VIN.</td><td>HTTP 422.</td></tr>
+            <tr><td>14</td><td>Запрос без токена и с неверным токеном.</td><td>HTTP 401; карточка не изменена.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer>
+      Документ фиксирует исходные требования, найденные противоречия, принятые решения, фактическую реализацию и ручную тестовую матрицу на 07.08.2026.
+    </footer>
+  </main>
+</body>
+</html>

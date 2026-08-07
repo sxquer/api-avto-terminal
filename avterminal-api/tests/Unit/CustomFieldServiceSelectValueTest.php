@@ -25,6 +25,17 @@ class CustomFieldServiceSelectValueTest extends TestCase
         $this->assertSame(1238357, $value['enum_id']);
     }
 
+    public function test_checkbox_values_are_sent_as_booleans(): void
+    {
+        $reflection = new ReflectionClass(CustomFieldService::class);
+        $service = $reflection->newInstanceWithoutConstructor();
+
+        $method = new ReflectionMethod(CustomFieldService::class, 'createCheckboxValueCollection');
+
+        $this->assertTrue($method->invoke($service, true)->first()->toApi()['value']);
+        $this->assertFalse($method->invoke($service, false)->first()->toApi()['value']);
+    }
+
     private function createSelectValue(int|string $value): array
     {
         $reflection = new ReflectionClass(CustomFieldService::class);

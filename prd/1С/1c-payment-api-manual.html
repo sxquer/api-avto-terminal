@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>1С → amoCRM: передача факта полной оплаты</title>
+  <title>1С → amoCRM: синхронизация статуса оплаты</title>
   <style>
     :root {
       --ink: #172033;
@@ -201,11 +201,11 @@
 <body>
   <main class="wrap">
     <header class="hero">
-      <h1>1С → amoCRM: факт полной оплаты</h1>
-      <p>Технический мануал для разработчика 1С. Описывает отправку VIN после оплаты всех счетов и текущие ограничения по воронкам amoCRM.</p>
+      <h1>1С → amoCRM: статус оплаты</h1>
+      <p>Технический мануал для разработчика 1С. Описывает передачу агрегированного статуса счетов <code>paid/unpaid</code>, изменение карточки и ограничения по воронкам amoCRM.</p>
       <div class="meta">
-        <span>Версия: 1.0</span>
-        <span>Дата: 27.07.2026</span>
+        <span>Версия: 2.0</span>
+        <span>Дата: 07.08.2026</span>
         <span>Базовый URL: <code>http://api-avto-terminal.ru</code></span>
       </div>
     </header>
@@ -217,32 +217,36 @@
       <a href="#production">3. Метод API</a> ·
       <a href="#responses">4. Повторная отправка</a> ·
       <a href="#errors">5. Ошибки</a> ·
-      <a href="#limits">6. Ограничения</a>
+      <a href="#limits">6. Ограничения</a> ·
+      <a href="#manual-tests">7. Ручные тесты</a> ·
+      <a href="#decisions">8. Принятые решения</a>
     </nav>
 
     <section id="logic">
       <h2>1. Логика обмена</h2>
       <div class="note ok">
-        <strong>Главное правило:</strong> 1С самостоятельно определяет, что по автомобилю оплачены все обязательные счета. API не получает перечень счетов и не пересчитывает оплату — он принимает готовый финальный факт по VIN.
+        <strong>Главное правило:</strong> 1С самостоятельно определяет агрегированный статус счетов. API не получает перечень счетов и не пересчитывает оплату — он принимает по VIN одно из двух значений: <code>paid</code> или <code>unpaid</code>.
       </div>
 
       <div class="flow" aria-label="Схема обработки оплаты">
-        <div>1С подтверждает оплату всех счетов по автомобилю.</div>
-        <div>1С отправляет JSON с единственным обязательным полем <code>vin</code>.</div>
+        <div>1С определяет, есть ли неоплаченные счета по автомобилю.</div>
+        <div>1С отправляет JSON с обязательными полями <code>vin</code> и <code>status</code>.</div>
         <div>API ищет ровно одну сделку по полю VIN в подключённых воронках.</div>
-        <div>Если сделка находится в основной воронке, API переводит её в этап «Оплачено».</div>
+        <div>API приводит checkbox, цвет и при необходимости стадию к целевому состоянию.</div>
       </div>
 
       <p>Целевые значения основной воронки:</p>
       <ul>
         <li>воронка: <strong>«Воронка»</strong>, ID <code>7523034</code>;</li>
         <li>этап назначения: <strong>«Оплачено»</strong>, ID <code>64577710</code>.</li>
+        <li>«Счёт выставлен (Усс)»: <code>990217</code>;</li>
+        <li>«Счёт оплачен (Усс)»: <code>990219</code>.</li>
       </ul>
     </section>
 
     <section id="contract">
       <h2>2. Общий контракт запроса</h2>
-      <p>Метод принимает JSON с VIN автомобиля.</p>
+      <p>Основной метод принимает JSON с VIN автомобиля и агрегированным статусом счетов.</p>
 
       <h3>HTTP-заголовки</h3>
       <pre><code>Authorization: Bearer &lt;SANCTUM_TOKEN&gt;
@@ -251,7 +255,8 @@ Accept: application/json</code></pre>
 
       <h3>Тело запроса</h3>
       <pre><code>{
-  "vin": "JTDBR32E720123456"
+  "vin": "JTDBR32E720123456",
+  "status": "paid"
 }</code></pre>
 
       <div class="table-wrap">
@@ -271,6 +276,12 @@ Accept: application/json</code></pre>
               <td>Да</td>
               <td>Непустая строка, максимум 64 символа. Пробелы по краям удаляются, регистр приводится к верхнему.</td>
             </tr>
+            <tr>
+              <td><code>status</code></td>
+              <td>Строка</td>
+              <td>Да</td>
+              <td>Только точные значения <code>paid</code> или <code>unpaid</code>.</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -282,18 +293,35 @@ Accept: application/json</code></pre>
 
     <section id="production">
       <h2>3. Метод API</h2>
-      <div class="endpoint"><span class="method">POST</span>http://api-avto-terminal.ru/api/amocrm/integrations/1c/payments/paid</div>
+      <div class="endpoint"><span class="method">POST</span>http://api-avto-terminal.ru/api/amocrm/integrations/1c/payments/status</div>
 
       <div class="note bad">
-        Метод изменяет карточку amoCRM. Вызывать его следует только когда 1С подтвердила оплату всех счетов по автомобилю.
+        Метод изменяет карточку amoCRM. Значение <code>unpaid</code> отключает признак оплаты и красит карточку в красный; <code>paid</code> включает оба признака, красит карточку в зелёный и переводит открытую сделку в «Оплачено».
       </div>
 
       <h3>Пример curl</h3>
-      <pre><code>curl -X POST "http://api-avto-terminal.ru/api/amocrm/integrations/1c/payments/paid" \
+      <pre><code>curl -X POST "http://api-avto-terminal.ru/api/amocrm/integrations/1c/payments/status" \
   -H "Authorization: Bearer SANCTUM_TOKEN" \
   -H "Content-Type: application/json" \
   -H "Accept: application/json" \
-  -d '{"vin":"JTDBR32E720123456"}'</code></pre>
+  -d '{"vin":"JTDBR32E720123456","status":"paid"}'</code></pre>
+
+      <h3>Временный адрес для обратной совместимости</h3>
+      <div class="endpoint"><span class="method">POST</span>http://api-avto-terminal.ru/api/amocrm/integrations/1c/payments/paid</div>
+      <p>Оба адреса ведут в одну логику. На старом адресе запрос только с VIN по-прежнему трактуется как <code>paid</code>. Если поле <code>status</code> передано, старый адрес также принимает <code>paid/unpaid</code>. Новую интеграцию следует строить на <code>/payments/status</code>; старый адрес является временным alias.</p>
+
+      <h3>Целевые состояния</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>status</th><th>Счёт выставлен</th><th>Счёт оплачен</th><th>Цвет</th><th>Стадия</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>unpaid</code></td><td>Активен</td><td>Неактивен</td><td>Красный</td><td>Не меняется</td></tr>
+            <tr><td><code>paid</code></td><td>Активен</td><td>Активен</td><td>Зелёный</td><td>«Оплачено» для открытой сделки</td></tr>
+          </tbody>
+        </table>
+      </div>
 
       <h3>Успешный ответ</h3>
       <p>Формат совпадает с ответами существующих методов <code>dt-status</code> и <code>td-status</code>:</p>
@@ -305,7 +333,7 @@ Accept: application/json</code></pre>
 
     <section id="responses">
       <h2>4. Повторная отправка</h2>
-      <p>Вызов идемпотентен на уровне этапа сделки. Если 1С не получила HTTP-ответ из-за обрыва сети, запрос с тем же VIN можно повторить. Если первый запрос успел изменить сделку, повторный вызов не обновит этап второй раз и вернёт стандартное подтверждение:</p>
+      <p>Вызов идемпотентен: API сравнивает checkbox, цвет и стадию с целевым состоянием и обновляет только отличающиеся значения. Если 1С не получила HTTP-ответ из-за обрыва сети, запрос с тем же VIN и <code>status</code> можно повторить.</p>
       <pre><code>{
   "message": "OK"
 }</code></pre>
@@ -344,7 +372,7 @@ Accept: application/json</code></pre>
             </tr>
             <tr>
               <td><code>422</code></td>
-              <td>Поле <code>vin</code> отсутствует или нарушен формат.</td>
+              <td>Поле <code>vin</code>/<code>status</code> отсутствует, нарушен формат или передан неизвестный статус.</td>
               <td>Исправить формирование JSON.</td>
               <td><span class="badge bad">Нет</span></td>
             </tr>
@@ -418,8 +446,41 @@ Accept: application/json</code></pre>
       <p>Чтобы включить оплату в двух остальных воронках, необходимо создать в каждой этап «Оплачено», получить его ID и добавить на backend маппинг <code>pipelineId → paidStatusId</code>. До этого 1С должна отправлять такие случаи на ручную обработку.</p>
     </section>
 
+    <section id="manual-tests">
+      <h2>7. Набор ручных тестов</h2>
+      <div class="note warn"><strong>Важно:</strong> методы изменяют боевую amoCRM. Для проверки использовать специально подготовленные карточки с уникальными VIN и заранее записать их исходные поля, цвет и стадию.</div>
+      <ol>
+        <li><strong>Новый URL, paid.</strong> На основной воронке выставить: «Счёт выставлен» = да, «Счёт оплачен» = нет, цвет красный, стадия «Оплата». Отправить <code>paid</code>. Ожидание: оба checkbox активны, цвет зелёный, стадия «Оплачено», HTTP 200.</li>
+        <li><strong>Повторный paid.</strong> Повторить тот же запрос. Ожидание: данные не меняются, HTTP 200.</li>
+        <li><strong>unpaid после paid.</strong> На карточку из предыдущего теста отправить <code>unpaid</code>. Ожидание: «Счёт выставлен» активен, «Счёт оплачен» выключен, цвет красный, стадия остаётся «Оплачено».</li>
+        <li><strong>Повторный unpaid.</strong> Повторить запрос. Ожидание: данные не меняются, HTTP 200.</li>
+        <li><strong>paid при выключенном «Счёт выставлен».</strong> Оба checkbox выключены. Ожидание: оба включены, цвет зелёный, стадия «Оплачено».</li>
+        <li><strong>unpaid при выключенном «Счёт выставлен».</strong> Ожидание: «Счёт выставлен» включён, «Счёт оплачен» выключен, цвет красный, стадия прежняя.</li>
+        <li><strong>Legacy URL без status.</strong> Отправить на <code>/payments/paid</code> только VIN. Ожидание: запрос обработан как <code>paid</code>.</li>
+        <li><strong>Legacy URL с unpaid.</strong> Передать VIN и <code>status=unpaid</code>. Ожидание: применяется логика unpaid.</li>
+        <li><strong>Закрытая сделка.</strong> На стадии 142 или 143 отправить <code>paid</code>, затем <code>unpaid</code>. Ожидание: checkbox и цвет меняются, закрытая стадия не меняется.</li>
+        <li><strong>Другая воронка.</strong> Отправить VIN сделки «Транзит по РФ» и отдельно «Офис Москва». Ожидание: HTTP 409, карточки не изменены.</li>
+        <li><strong>Дублирующий VIN.</strong> Один VIN находится в двух подключённых воронках. Ожидание: HTTP 409, ни одна карточка не изменена.</li>
+        <li><strong>Неизвестный VIN.</strong> Ожидание: HTTP 404.</li>
+        <li><strong>Ошибочный payload.</strong> Проверить отсутствие <code>status</code> на новом URL, значение <code>partial</code>, отсутствие VIN и status другого регистра. Ожидание: HTTP 422.</li>
+        <li><strong>Авторизация.</strong> Запрос без Bearer-токена и с неверным токеном. Ожидание: HTTP 401, карточка не изменена.</li>
+      </ol>
+    </section>
+
+    <section id="decisions">
+      <h2>8. Потенциальные противоречия и принятая реализация</h2>
+      <ul>
+        <li><strong>unpaid на стадии «Оплачено».</strong> Стадия не откатывается: checkbox оплаты выключается, карточка красится в красный, стадия остаётся «Оплачено».</li>
+        <li><strong>Общий цвет с логикой ДТ.</strong> Последний статус оплаты считается приоритетным и может перезаписать цвет, установленный обработкой ДТ.</li>
+        <li><strong>Закрытые стадии 142/143.</strong> Стадия не переоткрывается, но checkbox и цвет обновляются по данным 1С.</li>
+        <li><strong>paid при выключенном «Счёт выставлен».</strong> Оба checkbox включаются: оплаченный счёт считается выставленным.</li>
+        <li><strong>Фраза «всё остаётся как есть».</strong> Она применяется ко всему целевому состоянию, а не только к checkbox: если цвет или стадия не совпадают, они корректируются.</li>
+        <li><strong>Название метода.</strong> Основным стал <code>/payments/status</code>; <code>/payments/paid</code> временно сохранён как совместимый alias.</li>
+      </ul>
+    </section>
+
     <footer>
-      Документ фиксирует контракт endpoint оплаты и структуру воронок amoCRM на 27.07.2026. При добавлении этапов «Оплачено» в другие воронки таблица ограничений и backend-конфигурация должны быть обновлены одновременно.
+      Документ фиксирует контракт синхронизации оплаты и принятые решения на 07.08.2026. Старый адрес <code>/payments/paid</code> является временным alias и должен быть удалён после перехода 1С на <code>/payments/status</code>.
     </footer>
   </main>
 </body>
