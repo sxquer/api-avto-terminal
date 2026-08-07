@@ -26,7 +26,6 @@ class PaymentSyncServiceTest extends TestCase
         parent::setUp();
 
         config()->set('amocrm.onec.payment_pipeline_id', 7523034);
-        config()->set('amocrm.onec.paid_status_id', 64577710);
         config()->set('amocrm.fields.uss_invoice_issued.id', 990217);
         config()->set('amocrm.fields.uss_invoice_paid.id', 990219);
         config()->set('amocrm.fields.color_field_id.id', 974799);
@@ -39,7 +38,7 @@ class PaymentSyncServiceTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_paid_enables_paid_checkbox_sets_green_and_moves_stage(): void
+    public function test_paid_enables_paid_checkbox_sets_green_and_keeps_stage(): void
     {
         $lead = $this->lead(101, 7523034, 64577706, true, false, 'Красный');
         [$service, $leadService, $customFieldService] = $this->serviceForLead($lead);
@@ -51,19 +50,17 @@ class PaymentSyncServiceTest extends TestCase
                 ['field_key' => 'color_field_id', 'value' => 'Зеленый', 'type' => 'select'],
             ])
             ->andReturn($lead);
-        $leadService->shouldReceive('updateLeadStatusById')
-            ->once()
-            ->with(101, 64577710)
-            ->andReturn($lead);
+        $leadService->shouldNotReceive('updateLeadStatusById');
 
         $result = $service->syncPaymentStatusByVin(' jtdbr32e720123456 ', 'paid');
 
         $this->assertSame('paid', $result['status']);
         $this->assertSame('paid', $result['paymentStatus']);
         $this->assertSame('JTDBR32E720123456', $result['vin']);
-        $this->assertSame(64577710, $result['currentStatusId']);
+        $this->assertSame(64577706, $result['currentStatusId']);
+        $this->assertNull($result['targetStatusId']);
         $this->assertSame(['uss_invoice_paid', 'color_field_id'], $result['updatedFields']);
-        $this->assertTrue($result['stageChanged']);
+        $this->assertFalse($result['stageChanged']);
         $this->assertTrue($result['updated']);
     }
 
@@ -80,7 +77,7 @@ class PaymentSyncServiceTest extends TestCase
                 ['field_key' => 'color_field_id', 'value' => 'Зеленый', 'type' => 'select'],
             ])
             ->andReturn($lead);
-        $leadService->shouldReceive('updateLeadStatusById')->once()->andReturn($lead);
+        $leadService->shouldNotReceive('updateLeadStatusById');
 
         $result = $service->syncPaymentStatusByVin('JTDBR32E720123456', 'paid');
 
@@ -194,7 +191,7 @@ class PaymentSyncServiceTest extends TestCase
         $this->assertTrue($result['updated']);
     }
 
-    public function test_paid_on_terminal_stage_updates_fields_but_does_not_reopen_deal(): void
+    public function test_paid_on_terminal_stage_updates_fields_and_keeps_stage(): void
     {
         $lead = $this->lead(101, 7523034, 142, true, false, 'Красный');
         [$service, $leadService, $customFieldService] = $this->serviceForLead($lead);
@@ -203,7 +200,7 @@ class PaymentSyncServiceTest extends TestCase
 
         $result = $service->syncPaymentStatusByVin('JTDBR32E720123456', 'paid');
 
-        $this->assertSame('ignored_terminal_stage', $result['status']);
+        $this->assertSame('paid', $result['status']);
         $this->assertSame(142, $result['currentStatusId']);
         $this->assertFalse($result['stageChanged']);
         $this->assertTrue($result['updated']);
@@ -220,7 +217,7 @@ class PaymentSyncServiceTest extends TestCase
 
         $this->assertSame('would_sync_paid', $result['status']);
         $this->assertSame(['uss_invoice_paid', 'color_field_id'], $result['updatedFields']);
-        $this->assertTrue($result['stageChanged']);
+        $this->assertFalse($result['stageChanged']);
         $this->assertFalse($result['updated']);
     }
 

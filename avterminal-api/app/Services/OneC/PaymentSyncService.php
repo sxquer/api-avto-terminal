@@ -16,10 +16,6 @@ class PaymentSyncService
 
     public const STATUS_UNPAID = 'unpaid';
 
-    private const AMO_SUCCESS_STATUS_ID = 142;
-
-    private const AMO_LOST_STATUS_ID = 143;
-
     public function __construct(
         private LeadService $leadService,
         private CustomFieldService $customFieldService
@@ -50,8 +46,6 @@ class PaymentSyncService
         $pipelineId = (int) $lead->getPipelineId();
         $previousStatusId = (int) $lead->getStatusId();
         $paymentPipelineId = (int) config('amocrm.onec.payment_pipeline_id', 7523034);
-        $paidStatusId = (int) config('amocrm.onec.paid_status_id', 64577710);
-
         if ($pipelineId !== $paymentPipelineId) {
             throw new PaymentConflictException(
                 "Сделка {$leadId} с VIN {$vin} находится в воронке {$pipelineId}; "
@@ -62,14 +56,6 @@ class PaymentSyncService
         $desiredPaid = $paymentStatus === self::STATUS_PAID;
         $desiredColor = $desiredPaid ? 'Зеленый' : 'Красный';
         $fieldsToUpdate = $this->buildChangedFields($lead, $desiredPaid, $desiredColor);
-        $isTerminalStage = in_array(
-            $previousStatusId,
-            [self::AMO_SUCCESS_STATUS_ID, self::AMO_LOST_STATUS_ID],
-            true
-        );
-        $shouldChangeStage = $desiredPaid
-            && ! $isTerminalStage
-            && $previousStatusId !== $paidStatusId;
 
         if ($dryRun) {
             return $this->result(
@@ -78,10 +64,8 @@ class PaymentSyncService
                 $leadId,
                 $pipelineId,
                 $previousStatusId,
-                $paidStatusId,
                 $paymentStatus,
                 array_column($fieldsToUpdate, 'field_key'),
-                $shouldChangeStage,
                 false
             );
         }
@@ -90,15 +74,7 @@ class PaymentSyncService
             $this->customFieldService->updateLeadCustomFields($leadId, $fieldsToUpdate);
         }
 
-        if ($shouldChangeStage) {
-            $this->leadService->updateLeadStatusById($leadId, $paidStatusId);
-        }
-
-        $operationStatus = match (true) {
-            $isTerminalStage && $desiredPaid => 'ignored_terminal_stage',
-            $fieldsToUpdate === [] && ! $shouldChangeStage => 'already_synced',
-            default => $paymentStatus,
-        };
+        $operationStatus = $fieldsToUpdate === [] ? 'already_synced' : $paymentStatus;
 
         Log::info('1C payment: статус счетов синхронизирован', [
             'vin' => $vin,
@@ -106,10 +82,9 @@ class PaymentSyncService
             'lead_id' => $leadId,
             'pipeline_id' => $pipelineId,
             'previous_status_id' => $previousStatusId,
-            'current_status_id' => $shouldChangeStage ? $paidStatusId : $previousStatusId,
+            'current_status_id' => $previousStatusId,
             'updated_fields' => array_column($fieldsToUpdate, 'field_key'),
-            'stage_changed' => $shouldChangeStage,
-            'terminal_stage_preserved' => $isTerminalStage,
+            'stage_changed' => false,
         ]);
 
         return $this->result(
@@ -118,11 +93,9 @@ class PaymentSyncService
             $leadId,
             $pipelineId,
             $previousStatusId,
-            $paidStatusId,
             $paymentStatus,
             array_column($fieldsToUpdate, 'field_key'),
-            $shouldChangeStage,
-            $fieldsToUpdate !== [] || $shouldChangeStage
+            $fieldsToUpdate !== []
         );
     }
 
@@ -166,10 +139,8 @@ class PaymentSyncService
         int $leadId,
         int $pipelineId,
         int $previousStatusId,
-        int $paidStatusId,
         string $paymentStatus,
         array $updatedFields,
-        bool $stageChanged,
         bool $updated
     ): array {
         return [
@@ -179,10 +150,10 @@ class PaymentSyncService
             'dealId' => $leadId,
             'pipelineId' => $pipelineId,
             'previousStatusId' => $previousStatusId,
-            'currentStatusId' => $stageChanged ? $paidStatusId : $previousStatusId,
-            'targetStatusId' => $paymentStatus === self::STATUS_PAID ? $paidStatusId : null,
+            'currentStatusId' => $previousStatusId,
+            'targetStatusId' => null,
             'updatedFields' => $updatedFields,
-            'stageChanged' => $stageChanged,
+            'stageChanged' => false,
             'updated' => $updated,
         ];
     }

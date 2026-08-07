@@ -204,9 +204,9 @@
       <h1>1С → amoCRM: статус оплаты</h1>
       <p>Технический мануал для разработчика 1С. Описывает передачу агрегированного статуса счетов <code>paid/unpaid</code>, изменение карточки и ограничения по воронкам amoCRM.</p>
       <div class="meta">
-        <span>Версия: 2.0</span>
+        <span>Версия: 2.1</span>
         <span>Дата: 07.08.2026</span>
-        <span>Базовый URL: <code>http://api-avto-terminal.ru</code></span>
+        <span>Базовый URL: <code>https://api-avto-terminal.ru</code></span>
       </div>
     </header>
 
@@ -232,13 +232,12 @@
         <div>1С определяет, есть ли неоплаченные счета по автомобилю.</div>
         <div>1С отправляет JSON с обязательными полями <code>vin</code> и <code>status</code>.</div>
         <div>API ищет ровно одну сделку по полю VIN в подключённых воронках.</div>
-        <div>API приводит checkbox, цвет и при необходимости стадию к целевому состоянию.</div>
+        <div>API приводит checkbox и цвет к целевому состоянию. Стадия сделки не меняется.</div>
       </div>
 
       <p>Целевые значения основной воронки:</p>
       <ul>
         <li>воронка: <strong>«Воронка»</strong>, ID <code>7523034</code>;</li>
-        <li>этап назначения: <strong>«Оплачено»</strong>, ID <code>64577710</code>.</li>
         <li>«Счёт выставлен (Усс)»: <code>990217</code>;</li>
         <li>«Счёт оплачен (Усс)»: <code>990219</code>.</li>
       </ul>
@@ -293,21 +292,21 @@ Accept: application/json</code></pre>
 
     <section id="production">
       <h2>3. Метод API</h2>
-      <div class="endpoint"><span class="method">POST</span>http://api-avto-terminal.ru/api/amocrm/integrations/1c/payments/status</div>
+      <div class="endpoint"><span class="method">POST</span>https://api-avto-terminal.ru/api/amocrm/integrations/1c/payments/status</div>
 
       <div class="note bad">
-        Метод изменяет карточку amoCRM. Значение <code>unpaid</code> отключает признак оплаты и красит карточку в красный; <code>paid</code> включает оба признака, красит карточку в зелёный и переводит открытую сделку в «Оплачено».
+        Метод изменяет checkbox и цвет карточки amoCRM. Значение <code>unpaid</code> отключает признак оплаты и красит карточку в красный; <code>paid</code> включает оба признака и красит карточку в зелёный. Стадия не меняется.
       </div>
 
       <h3>Пример curl</h3>
-      <pre><code>curl -X POST "http://api-avto-terminal.ru/api/amocrm/integrations/1c/payments/status" \
+      <pre><code>curl -X POST "https://api-avto-terminal.ru/api/amocrm/integrations/1c/payments/status" \
   -H "Authorization: Bearer SANCTUM_TOKEN" \
   -H "Content-Type: application/json" \
   -H "Accept: application/json" \
   -d '{"vin":"JTDBR32E720123456","status":"paid"}'</code></pre>
 
       <h3>Временный адрес для обратной совместимости</h3>
-      <div class="endpoint"><span class="method">POST</span>http://api-avto-terminal.ru/api/amocrm/integrations/1c/payments/paid</div>
+      <div class="endpoint"><span class="method">POST</span>https://api-avto-terminal.ru/api/amocrm/integrations/1c/payments/paid</div>
       <p>Оба адреса ведут в одну логику. На старом адресе запрос только с VIN по-прежнему трактуется как <code>paid</code>. Если поле <code>status</code> передано, старый адрес также принимает <code>paid/unpaid</code>. Новую интеграцию следует строить на <code>/payments/status</code>; старый адрес является временным alias.</p>
 
       <h3>Целевые состояния</h3>
@@ -318,7 +317,7 @@ Accept: application/json</code></pre>
           </thead>
           <tbody>
             <tr><td><code>unpaid</code></td><td>Активен</td><td>Неактивен</td><td>Красный</td><td>Не меняется</td></tr>
-            <tr><td><code>paid</code></td><td>Активен</td><td>Активен</td><td>Зелёный</td><td>«Оплачено» для открытой сделки</td></tr>
+            <tr><td><code>paid</code></td><td>Активен</td><td>Активен</td><td>Зелёный</td><td>Не меняется</td></tr>
           </tbody>
         </table>
       </div>
@@ -333,7 +332,7 @@ Accept: application/json</code></pre>
 
     <section id="responses">
       <h2>4. Повторная отправка</h2>
-      <p>Вызов идемпотентен: API сравнивает checkbox, цвет и стадию с целевым состоянием и обновляет только отличающиеся значения. Если 1С не получила HTTP-ответ из-за обрыва сети, запрос с тем же VIN и <code>status</code> можно повторить.</p>
+      <p>Вызов идемпотентен: API сравнивает checkbox и цвет с целевым состоянием и обновляет только отличающиеся значения. Стадия всегда сохраняется. Если 1С не получила HTTP-ответ из-за обрыва сети, запрос с тем же VIN и <code>status</code> можно повторить.</p>
       <pre><code>{
   "message": "OK"
 }</code></pre>
@@ -399,7 +398,7 @@ Accept: application/json</code></pre>
     <section id="limits">
       <h2>6. Ограничения по воронкам</h2>
       <div class="note bad">
-        На дату документа перевод в «Оплачено» реализован только для основной воронки. В двух остальных подключённых воронках такого этапа сейчас нет.
+        На первом этапе синхронизация checkbox и цвета разрешена только для основной воронки. Стадии не меняются ни в одной воронке.
       </div>
 
       <div class="table-wrap">
@@ -408,7 +407,7 @@ Accept: application/json</code></pre>
             <tr>
               <th>Воронка</th>
               <th>ID</th>
-              <th>Этап «Оплачено»</th>
+              <th>Изменение стадии</th>
               <th>Результат запроса</th>
             </tr>
           </thead>
@@ -416,8 +415,8 @@ Accept: application/json</code></pre>
             <tr>
               <td>Воронка (основная)</td>
               <td><code>7523034</code></td>
-              <td><span class="badge ok">Есть</span> ID <code>64577710</code></td>
-              <td>Боевой метод переводит сделку в «Оплачено».</td>
+              <td><span class="badge bad">Нет</span></td>
+              <td>Обновляются checkbox и цвет; стадия сохраняется.</td>
             </tr>
             <tr>
               <td>Транзит по РФ</td>
@@ -443,18 +442,18 @@ Accept: application/json</code></pre>
         <li>Если одинаковый VIN найден в нескольких сделках или воронках, возвращается <code>409</code>; API не выбирает карточку произвольно.</li>
       </ul>
 
-      <p>Чтобы включить оплату в двух остальных воронках, необходимо создать в каждой этап «Оплачено», получить его ID и добавить на backend маппинг <code>pipelineId → paidStatusId</code>. До этого 1С должна отправлять такие случаи на ручную обработку.</p>
+      <p>Чтобы включить синхронизацию в двух остальных воронках, необходимо определить соответствующие checkbox и правила цвета для каждой воронки. До этого 1С должна отправлять такие случаи на ручную обработку.</p>
     </section>
 
     <section id="manual-tests">
       <h2>7. Набор ручных тестов</h2>
       <div class="note warn"><strong>Важно:</strong> методы изменяют боевую amoCRM. Для проверки использовать специально подготовленные карточки с уникальными VIN и заранее записать их исходные поля, цвет и стадию.</div>
       <ol>
-        <li><strong>Новый URL, paid.</strong> На основной воронке выставить: «Счёт выставлен» = да, «Счёт оплачен» = нет, цвет красный, стадия «Оплата». Отправить <code>paid</code>. Ожидание: оба checkbox активны, цвет зелёный, стадия «Оплачено», HTTP 200.</li>
+        <li><strong>Новый URL, paid.</strong> На основной воронке выставить: «Счёт выставлен» = да, «Счёт оплачен» = нет, цвет красный. Записать текущую стадию и отправить <code>paid</code>. Ожидание: оба checkbox активны, цвет зелёный, стадия прежняя, HTTP 200.</li>
         <li><strong>Повторный paid.</strong> Повторить тот же запрос. Ожидание: данные не меняются, HTTP 200.</li>
-        <li><strong>unpaid после paid.</strong> На карточку из предыдущего теста отправить <code>unpaid</code>. Ожидание: «Счёт выставлен» активен, «Счёт оплачен» выключен, цвет красный, стадия остаётся «Оплачено».</li>
+        <li><strong>unpaid после paid.</strong> На карточку из предыдущего теста отправить <code>unpaid</code>. Ожидание: «Счёт выставлен» активен, «Счёт оплачен» выключен, цвет красный, исходная стадия сохраняется.</li>
         <li><strong>Повторный unpaid.</strong> Повторить запрос. Ожидание: данные не меняются, HTTP 200.</li>
-        <li><strong>paid при выключенном «Счёт выставлен».</strong> Оба checkbox выключены. Ожидание: оба включены, цвет зелёный, стадия «Оплачено».</li>
+        <li><strong>paid при выключенном «Счёт выставлен».</strong> Оба checkbox выключены. Ожидание: оба включены, цвет зелёный, стадия прежняя.</li>
         <li><strong>unpaid при выключенном «Счёт выставлен».</strong> Ожидание: «Счёт выставлен» включён, «Счёт оплачен» выключен, цвет красный, стадия прежняя.</li>
         <li><strong>Legacy URL без status.</strong> Отправить на <code>/payments/paid</code> только VIN. Ожидание: запрос обработан как <code>paid</code>.</li>
         <li><strong>Legacy URL с unpaid.</strong> Передать VIN и <code>status=unpaid</code>. Ожидание: применяется логика unpaid.</li>
@@ -470,11 +469,11 @@ Accept: application/json</code></pre>
     <section id="decisions">
       <h2>8. Потенциальные противоречия и принятая реализация</h2>
       <ul>
-        <li><strong>unpaid на стадии «Оплачено».</strong> Стадия не откатывается: checkbox оплаты выключается, карточка красится в красный, стадия остаётся «Оплачено».</li>
+        <li><strong>Замена старой логики.</strong> Новая схема полностью заменяет перевод на удалённый этап «Оплачено». Для <code>paid</code> и <code>unpaid</code> стадия всегда остаётся прежней.</li>
         <li><strong>Общий цвет с логикой ДТ.</strong> Последний статус оплаты считается приоритетным и может перезаписать цвет, установленный обработкой ДТ.</li>
         <li><strong>Закрытые стадии 142/143.</strong> Стадия не переоткрывается, но checkbox и цвет обновляются по данным 1С.</li>
         <li><strong>paid при выключенном «Счёт выставлен».</strong> Оба checkbox включаются: оплаченный счёт считается выставленным.</li>
-        <li><strong>Фраза «всё остаётся как есть».</strong> Она применяется ко всему целевому состоянию, а не только к checkbox: если цвет или стадия не совпадают, они корректируются.</li>
+        <li><strong>Фраза «всё остаётся как есть».</strong> Она применяется к checkbox и цвету: неверный цвет корректируется, стадия не участвует в синхронизации.</li>
         <li><strong>Название метода.</strong> Основным стал <code>/payments/status</code>; <code>/payments/paid</code> временно сохранён как совместимый alias.</li>
       </ul>
     </section>
